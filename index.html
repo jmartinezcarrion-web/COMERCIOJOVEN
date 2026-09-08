@@ -868,7 +868,7 @@
       <h1>Cartagena Comercio</h1>
     </div>
   </div>
-  <button class="admin-toggle" id="socioToggleBtn" onclick="toggleSocio()">👤 Vista socio</button>
+
   <div class="admin-preview-switch" id="adminPreviewSwitch" style="display:none">
     <button type="button" onclick="setAdminPreview('admin')" id="previewBtnAdmin">🔓 Administrador</button>
     <button type="button" onclick="setAdminPreview('socio')" id="previewBtnSocio">👤 Socio</button>
@@ -1514,6 +1514,7 @@
         <select id="memShopSelect" onchange="loadShopMembershipIntoForm()"></select>
       </div>
       <div class="field"><label>Persona de contacto</label><input type="text" id="memContact" placeholder="Ej: Ana Pérez"></div>
+      <div class="field"><label>Correo del socio (para su acceso a la app)</label><input type="email" id="memEmail" placeholder="socio@ejemplo.com"></div>
       <div class="field"><label>Teléfono de contacto</label><input type="tel" id="memPhone" placeholder="6XX XXX XXX"></div>
       <div class="field"><label>Cuota trimestral (€)</label><input type="number" id="memQuota" placeholder="45"></div>
       <div class="field">
@@ -1524,8 +1525,10 @@
         </select>
       </div>
       <button class="btn" type="button" onclick="saveShopMembership()">Guardar datos de socio</button>
+      <button class="icon-btn" type="button" onclick="createMemberAccess()" style="margin-left:8px;">🔒 Crear/enviar acceso de socio</button>
       <span id="memberSettingsStatus" style="margin-left:12px; font-size:12.5px; color:var(--teal-deep);"></span>
-      <p style="margin:14px 0 0; font-size:11.5px; color:var(--navy-deep);">¿No aparece el comercio en la lista? Primero dalo de alta en la pestaña Comercios — luego volverá a aparecer aquí.</p>
+      <p style="margin:14px 0 0; font-size:11.5px; color:var(--navy-deep);">El botón de acceso crea (o reactiva) la cuenta del socio con el correo de arriba y le manda un email para que elija su propia contraseña. Guarda antes el correo.</p>
+      <p style="margin:6px 0 0; font-size:11.5px; color:var(--navy-deep);">¿No aparece el comercio en la lista? Primero dalo de alta en la pestaña Comercios — luego volverá a aparecer aquí.</p>
     </div>
 
     <div class="card">
@@ -1574,8 +1577,8 @@
   <div class="poster-modal-inner admin-login-inner">
     <button class="poster-modal-close" onclick="closeAdminLoginModal()">✕</button>
     <form onsubmit="return submitAdminLogin(event)" class="admin-login-form">
-      <h2 style="margin:0 0 4px; font-size:18px;">Acceso administrador</h2>
-      <p style="margin:0 0 16px; font-size:13px; color:var(--navy-deep);">Entra con el correo y la contraseña que te haya dado la asociación.</p>
+      <h2 style="margin:0 0 4px; font-size:18px;">Acceso socios y administración</h2>
+      <p style="margin:0 0 16px; font-size:13px; color:var(--navy-deep);">Entra con el correo y la contraseña de tu cuenta (socio o administrador).</p>
       <div class="field"><label>Correo</label><input type="email" id="adminLoginEmail" autocomplete="username" required></div>
       <div class="field"><label>Contraseña</label><input type="password" id="adminLoginPassword" autocomplete="current-password" required></div>
       <p id="adminLoginError" style="display:none; color:var(--brick); font-size:12.5px; margin:0 0 10px;">Correo o contraseña incorrectos.</p>
@@ -1626,7 +1629,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, runTransaction,
     onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc
@@ -1635,7 +1638,8 @@
     getStorage, ref, uploadBytes, getDownloadURL
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
   import {
-    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+    createUserWithEmailAndPassword, sendPasswordResetEmail
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   // ===== Conexión al proyecto real de Firebase (Comercio Joven Cartagena) =====
@@ -3424,21 +3428,12 @@
     renderAll();
   }
 
-  function toggleSocio(){
-    // Este botón solo se usa cuando NO se está en modo administrador (para
-    // enseñar la demo libremente, sin contraseña). Dentro de administrador,
-    // el botón está oculto y se usa el selector "Vista previa" de arriba,
-    // que no saca de la sesión de administrador.
-    userMode = (userMode === 'socio') ? 'cliente' : 'socio';
-    applyAdminUI();
-  }
-
   function toggleAdminAccess(){
-    // Ya no activa el modo admin directamente: si no hay sesión, abre el
-    // formulario de login con correo y contraseña real de Firebase Auth.
-    // Si ya hay sesión, cierra sesión.
+    // Sirve tanto para administradores como para socios: si no hay sesión,
+    // abre el login con correo y contraseña real de Firebase Auth. El rol
+    // (admin o socio) se detecta solo, según la cuenta con la que se entre.
     if(auth.currentUser){
-      logoutAdmin();
+      logoutSession();
     } else {
       openAdminLoginModal();
     }
@@ -3479,19 +3474,31 @@
     return false;
   }
 
-  async function logoutAdmin(){
+  async function logoutSession(){
     try{ await signOut(auth); }
     catch(err){ console.error(err); }
     // onAuthStateChanged pondrá userMode de vuelta a 'cliente' y refrescará la UI.
   }
 
-  // Mantiene el modo administrador sincronizado con la sesión real de
-  // Firebase Auth: si alguien inicia sesión, entra en modo admin; si cierra
-  // sesión (o nunca ha entrado), se queda en cliente/socio como cualquier
-  // visitante. Esto también restaura la sesión de admin sola al recargar
+  // Mantiene el modo (administrador / socio) sincronizado con la sesión real
+  // de Firebase Auth. Al iniciar sesión, comprobamos si ese correo está en
+  // la lista de administradores (colección 'admins', cada cual solo puede
+  // leer su propio documento) — si está, entra como administrador; si no,
+  // entra como socio, porque no existe ningún registro público, así que
+  // cualquier cuenta que exista la hemos creado nosotros para un socio o
+  // para un administrador. Esto también restaura la sesión sola al recargar
   // la página, porque Firebase Auth recuerda el login en el navegador.
-  onAuthStateChanged(auth, (user) => {
-    userMode = user ? 'admin' : (userMode === 'admin' ? 'cliente' : userMode);
+  onAuthStateChanged(auth, async (user) => {
+    if(user){
+      let admin = false;
+      try{
+        const snap = await getDoc(doc(db, 'admins', user.uid));
+        admin = snap.exists();
+      } catch(err){ console.error('No se pudo comprobar el rol:', err); admin = false; }
+      userMode = admin ? 'admin' : 'socio';
+    } else {
+      userMode = (userMode === 'admin' || userMode === 'socio') ? 'cliente' : userMode;
+    }
     adminPreview = 'admin';
     applyAdminUI();
   });
@@ -4206,6 +4213,7 @@
     const sel = document.getElementById('memShopSelect');
     const s = shops.find(x => x.id === sel.value);
     document.getElementById('memContact').value = s?.contactName || '';
+    document.getElementById('memEmail').value = s?.contactEmail || '';
     document.getElementById('memPhone').value = s?.contactPhone || '';
     document.getElementById('memQuota').value = (s && s.quota != null) ? s.quota : '';
     document.getElementById('memStatus').value = s?.memberStatus || 'pendiente';
@@ -4218,17 +4226,53 @@
     const shopId = document.getElementById('memShopSelect').value;
     if(!shopId){ alert('Elige primero un comercio.'); return; }
     const contactName = document.getElementById('memContact').value.trim();
+    const contactEmail = document.getElementById('memEmail').value.trim();
     const contactPhone = document.getElementById('memPhone').value.trim();
     const quotaRaw = document.getElementById('memQuota').value;
     const quota = quotaRaw ? parseFloat(quotaRaw) : null;
     const memberStatus = document.getElementById('memStatus').value;
     const status = document.getElementById('memberSettingsStatus');
     try{
-      await updateDoc(doc(db,'shops', shopId), { contactName, contactPhone, quota, memberStatus });
+      await updateDoc(doc(db,'shops', shopId), { contactName, contactEmail, contactPhone, quota, memberStatus });
       status.textContent = '✓ Guardado';
       setTimeout(()=> status.textContent = '', 2500);
     } catch(err){
       alert('No se pudo guardar los datos de socio.'); console.error(err);
+    }
+  }
+
+  // Crea (o reactiva) el acceso de socio para el correo indicado en el
+  // formulario, usando una segunda instancia de Firebase aparte de la
+  // sesión de administrador actual, para no cerrar tu propia sesión al
+  // crear la cuenta de otra persona. Después le manda un correo de
+  // "restablecer contraseña" para que sea el propio socio quien elija su
+  // contraseña — nosotros nunca llegamos a verla.
+  async function createMemberAccess(){
+    const email = document.getElementById('memEmail').value.trim();
+    if(!email){ alert('Escribe primero el correo del socio y guarda los datos.'); return; }
+    const status = document.getElementById('memberSettingsStatus');
+    status.textContent = 'Creando acceso...';
+    let secondaryApp, secondaryAuth;
+    try{
+      secondaryApp = initializeApp(firebaseConfig, 'member-access-' + Date.now());
+      secondaryAuth = getAuth(secondaryApp);
+      const tempPassword = Math.random().toString(36).slice(-10) + 'Aa1!';
+      try{
+        await createUserWithEmailAndPassword(secondaryAuth, email, tempPassword);
+      } catch(err){
+        if(err.code !== 'auth/email-already-in-use') throw err;
+        // Ya existe cuenta con ese correo: no pasa nada, simplemente le
+        // reenviamos el enlace para (re)establecer contraseña.
+      }
+      await sendPasswordResetEmail(secondaryAuth, email);
+      await signOut(secondaryAuth);
+      status.textContent = '✓ Correo de acceso enviado a ' + email;
+      setTimeout(()=> status.textContent = '', 4000);
+    } catch(err){
+      alert('No se pudo crear el acceso.\n\nError: ' + (err && err.message ? err.message : err));
+      console.error(err);
+    } finally {
+      try{ if(secondaryApp) await deleteApp(secondaryApp); } catch(e){}
     }
   }
 
@@ -4857,31 +4901,32 @@
 
   function applyAdminUI(){
     const isAdminSession = (userMode === 'admin'); // true si ha entrado como administrador, aunque ahora mismo esté probando la vista previa de cliente/socio
+    const isSocioSession = (userMode === 'socio'); // true si ha entrado con una cuenta real de socio
     isAdmin = isAdminSession && (adminPreview === 'admin');
-    isSocio = isAdminSession ? (adminPreview !== 'cliente') : (userMode === 'socio');
+    isSocio = isAdminSession ? (adminPreview !== 'cliente') : isSocioSession;
 
     document.body.classList.toggle('mode-admin', isAdmin);
-    document.body.classList.toggle('mode-socio', (userMode === 'socio') || (isAdminSession && adminPreview === 'socio'));
+    document.body.classList.toggle('mode-socio', isSocioSession || (isAdminSession && adminPreview === 'socio'));
 
-    // Fuera de administrador: se ve el botón sencillo "Vista socio".
-    // Dentro de administrador: se ve el selector de 3 vistas previas, y el botón sencillo se oculta.
-    const socioBtn = document.getElementById('socioToggleBtn');
+    // El selector de 3 vistas previas ("Vista previa") solo tiene sentido
+    // dentro de una sesión de administrador; el resto de gente (socios
+    // reales o visitantes) no lo ve.
     const previewSwitch = document.getElementById('adminPreviewSwitch');
     if(isAdminSession){
-      socioBtn.style.display = 'none';
       previewSwitch.style.display = 'flex';
       ['admin','socio','cliente'].forEach(mode => {
         document.getElementById('previewBtn' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.toggle('active', adminPreview === mode);
       });
     } else {
-      socioBtn.style.display = '';
       previewSwitch.style.display = 'none';
-      socioBtn.classList.toggle('active', userMode === 'socio');
-      socioBtn.textContent = userMode === 'socio' ? '👤 Vista socio (activa)' : '👤 Vista socio';
     }
 
     const adminBtn = document.getElementById('adminAccessBtn');
-    if(adminBtn) adminBtn.textContent = isAdminSession ? '🔓 Salir de administrador' : 'Acceso administrador';
+    if(adminBtn){
+      if(isAdminSession) adminBtn.textContent = '🔓 Salir de administrador';
+      else if(isSocioSession) adminBtn.textContent = '🔓 Salir (sesión de socio)';
+      else adminBtn.textContent = '🔒 Acceso socios / administrador';
+    }
 
     const banner = document.getElementById('modeBanner');
     if(isAdminSession && adminPreview === 'admin'){
@@ -4948,8 +4993,8 @@
   // Este script es un módulo (para poder usar "import" de Firebase), así que
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
-    showView, toggleSocio, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
-    previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, toggleShopMemberStatus, removeShopMembership,
+    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
+    previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, toggleShopMemberStatus, removeShopMembership,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

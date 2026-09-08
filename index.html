@@ -1515,11 +1515,18 @@
     </div>
     <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Un espacio para hablar entre socios: propuestas, dudas, avisos... Solo lo veis los socios y la asociación.</p>
     <div class="card" style="margin-bottom:20px;">
-      <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">📰 Proponer una noticia para la web</h3>
-      <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">La asociación la revisará y avisará al administrador — no se publica sola, hasta que dé el visto bueno no la verán los clientes.</p>
+      <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">📰 Noticias y avisos</h3>
+      <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Elige si es algo formal para la web (la revisa la asociación antes de publicarla) o un aviso rápido informal solo para socios (se publica al momento).</p>
       <form onsubmit="return submitNewsProposal(event)">
+        <div class="field">
+          <label>Tipo</label>
+          <select id="newsProposalType" onchange="updateNewsProposalTypeUI()">
+            <option value="formal">📰 Noticia formal para la web (necesita aprobación, la ven los clientes)</option>
+            <option value="informal">💬 Aviso informal solo para socios (se publica al momento, sin revisión)</option>
+          </select>
+        </div>
         <div class="field"><label>Título</label><input type="text" id="newsProposalTitle" required placeholder="Ej: Nueva carta de otoño en mi restaurante"></div>
-        <div class="field"><label>Texto</label><textarea id="newsProposalBody" required rows="3" placeholder="Cuenta la noticia..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
+        <div class="field"><label>Texto</label><textarea id="newsProposalBody" required rows="3" placeholder="Cuenta la noticia o el aviso..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
         <div class="logo-upload">
           <div class="logo-preview small" id="newsProposalImagePreview"><span>Sin foto</span></div>
           <div style="flex:1">
@@ -4944,15 +4951,21 @@
     document.getElementById('newsProposalImagePreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto">`;
   }
 
+  function updateNewsProposalTypeUI(){
+    const type = document.getElementById('newsProposalType').value;
+    document.getElementById('newsProposalBtn').textContent = type === 'informal' ? 'Publicar aviso' : 'Enviar para revisión';
+  }
+
   async function submitNewsProposal(e){
     e.preventDefault();
-    if(!auth.currentUser){ alert('Tienes que iniciar sesión como socio para proponer una noticia.'); return false; }
+    if(!auth.currentUser){ alert('Tienes que iniciar sesión como socio para publicar.'); return false; }
+    const type = document.getElementById('newsProposalType').value;
     const title = document.getElementById('newsProposalTitle').value.trim();
     const body = document.getElementById('newsProposalBody').value.trim();
     if(!title || !body) return false;
     const btn = document.getElementById('newsProposalBtn');
     const status = document.getElementById('newsProposalStatus');
-    btn.disabled = true; btn.textContent = 'Enviando...';
+    btn.disabled = true; btn.textContent = type === 'informal' ? 'Publicando...' : 'Enviando...';
     try{
       let imageUrl = null;
       if(pendingNewsProposalImageFile){
@@ -4960,10 +4973,19 @@
         await uploadBytes(fileRef, pendingNewsProposalImageFile);
         imageUrl = await getDownloadURL(fileRef);
       }
-      await addDoc(collection(db,'news_requests'), {
-        title, body, image: imageUrl, authorName: forumAuthorName(), authorUid: auth.currentUser.uid,
-        status: 'pendiente', createdAt: serverTimestamp()
-      });
+      if(type === 'informal'){
+        // Aviso informal entre socios: se publica al momento, sin pasar por
+        // revisión, y solo lo ven socios (igual que cualquier otra noticia
+        // marcada "Visible para: Socios").
+        await addDoc(collection(db,'news'), { title, body, image: imageUrl, audience: 'socios', authorName: forumAuthorName(), createdAt: serverTimestamp() });
+        status.textContent = '✓ Publicado para los socios.';
+      } else {
+        await addDoc(collection(db,'news_requests'), {
+          title, body, image: imageUrl, authorName: forumAuthorName(), authorUid: auth.currentUser.uid,
+          status: 'pendiente', createdAt: serverTimestamp()
+        });
+        status.textContent = '✓ Enviada, en revisión.';
+      }
       document.getElementById('newsProposalTitle').value = '';
       document.getElementById('newsProposalBody').value = '';
       pendingNewsProposalImageFile = null;
@@ -4974,7 +4996,7 @@
       alert('No se pudo enviar la propuesta. Revisa la conexión e inténtalo otra vez.');
       console.error(err);
     } finally {
-      btn.disabled = false; btn.textContent = 'Enviar para revisión';
+      btn.disabled = false; btn.textContent = type === 'informal' ? 'Publicar aviso' : 'Enviar para revisión';
     }
     return false;
   }
@@ -5940,7 +5962,7 @@
     previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
-    previewNewsProposalImage, submitNewsProposal, approveNewsProposal, rejectNewsProposal,
+    previewNewsProposalImage, submitNewsProposal, updateNewsProposalTypeUI, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

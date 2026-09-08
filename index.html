@@ -3492,10 +3492,23 @@
   onAuthStateChanged(auth, async (user) => {
     if(user){
       let admin = false;
+      let roleCheckError = null;
       try{
         const snap = await getDoc(doc(db, 'admins', user.uid));
         admin = snap.exists();
-      } catch(err){ console.error('No se pudo comprobar el rol:', err); admin = false; }
+      } catch(err){
+        console.error('No se pudo comprobar el rol:', err);
+        roleCheckError = err;
+        admin = false;
+      }
+      // DIAGNÓSTICO TEMPORAL: muestra exactamente qué ha pasado al
+      // comprobar el rol, para saber por qué siempre cae en "socio".
+      if(!window.__roleCheckShown){
+        window.__roleCheckShown = true;
+        alert('DIAGNÓSTICO DE ROL\n\nTu UID comprobado: "' + user.uid + '" (longitud: ' + user.uid.length + ')\nCorreo: ' + user.email
+          + '\n¿Existe documento admins/' + user.uid + '?: ' + admin
+          + (roleCheckError ? ('\nError: ' + roleCheckError.code + ' — ' + roleCheckError.message) : '\nSin error, la lectura funcionó.'));
+      }
       userMode = admin ? 'admin' : 'socio';
     } else {
       userMode = (userMode === 'admin' || userMode === 'socio') ? 'cliente' : userMode;

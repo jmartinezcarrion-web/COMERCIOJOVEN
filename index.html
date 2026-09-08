@@ -1151,6 +1151,11 @@
       <h2>Directorio de comercios</h2>
       <span class="count mono" id="shopsCount"></span>
     </div>
+    <div style="margin:0 0 18px;">
+      <select id="shopSectorFilter" onchange="renderAll()" style="padding:9px 12px; border:1px solid var(--line); border-radius:6px; font-size:13.5px; font-family:'Inter',sans-serif; background:#fff; color:#123024;">
+        <option value="">Todos los sectores</option>
+      </select>
+    </div>
 
     <div class="admin-panel" id="shopAdminPanel" style="display:none">
       <span class="tag" id="shopFormTag">⚙ Añadir comercio (administrador)</span>
@@ -5418,7 +5423,19 @@
       </div>`).join('') : '<p style="color:var(--navy-deep); font-size:13px;">Sin actividades destacadas en Inicio.</p>';
 
     // Comercios
-    const visibleShops = shops.filter(visibleToCurrentUser);
+    const allVisibleShops = shops.filter(visibleToCurrentUser);
+    const sectorFilterEl = document.getElementById('shopSectorFilter');
+    if(sectorFilterEl && document.activeElement !== sectorFilterEl){
+      const prevSector = sectorFilterEl.value;
+      const sectores = [...new Set(allVisibleShops.map(s => s.cat).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'es'));
+      sectorFilterEl.innerHTML = '<option value="">Todos los sectores</option>' + sectores.map(c => `<option value="${c}">${c}</option>`).join('');
+      if(sectores.includes(prevSector)) sectorFilterEl.value = prevSector;
+    }
+    const selectedSector = sectorFilterEl ? sectorFilterEl.value : '';
+    const visibleShops = allVisibleShops
+      .filter(s => !selectedSector || s.cat === selectedSector)
+      .slice()
+      .sort((a,b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity:'base' }));
     document.getElementById('shopsCount').textContent = visibleShops.length + ' asociados';
     document.getElementById('shopsGrid').innerHTML = visibleShops.map((s) => {
       const mapQuery = s.address ? s.address : `${s.name}, Cartagena`;

@@ -4071,7 +4071,11 @@
 
     area.innerHTML = `
       <div class="card">
-        <p style="margin:0 0 16px; font-size:13.5px; color:#123024;">Rellena los datos de tu comercio para darte de alta en Comercio Joven Cartagena. La asociación revisará la solicitud antes de publicarla — no se hace pública automáticamente.</p>
+        <div style="margin:0 0 20px; padding:16px 18px; background:rgba(255,255,255,0.55); border-radius:8px; border:1px solid var(--line);">
+          <p style="margin:0 0 10px; font-size:15px; font-weight:700; color:var(--navy-deep);">👋 ¡Bienvenido a Comercio Joven Cartagena!</p>
+          <p style="margin:0 0 10px; font-size:13.5px; color:#123024;">Estamos formando la nueva asociación de comercio joven de Cartagena, abierta a todo tipo de negocios de la ciudad. Déjanos los datos de tu comercio y nos pondremos en contacto contigo para completar tu alta.</p>
+          <p style="margin:0; font-size:13.5px; color:#123024;">La cuota de socio es de <strong>10 €/mes</strong>. Este formulario es un <strong>registro provisional</strong>: tu comercio no aparecerá publicado hasta que el administrador de la asociación revise y apruebe tu solicitud.</p>
+        </div>
         <form onsubmit="return submitAltaForm(event)">
           <div class="field"><label>Nombre del comercio</label><input type="text" id="altaName" required placeholder="Ej: Frutería del Carmen" value="${d.name || ''}"></div>
           <div class="field"><label>Sector</label><input type="text" id="altaCat" required placeholder="Ej: Alimentación" value="${d.cat || ''}"></div>

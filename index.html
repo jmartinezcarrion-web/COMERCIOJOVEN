@@ -3930,7 +3930,8 @@
       });
       await updateDoc(doc(db,'shop_requests', id), { status:'aprobada' });
     } catch(err){
-      alert('No se pudo aprobar la solicitud.'); console.error(err);
+      alert('No se pudo aprobar la solicitud.\n\nError técnico: ' + (err && err.message ? err.message : err) + '\nTu sesión (UID): ' + (auth.currentUser ? auth.currentUser.uid : 'NO HAY SESIÓN INICIADA'));
+      console.error(err);
     }
   }
 

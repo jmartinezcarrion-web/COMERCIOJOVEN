@@ -4773,6 +4773,13 @@
     window.open(`https://wa.me/?text=${text}`, '_blank');
   }
 
+  function sendActualizarEmail(shopId, shopName, email){
+    const url = window.location.origin + window.location.pathname + '?actualizar=' + shopId;
+    const body = `Hola! 👋 Desde Comercio Joven Cartagena te escribimos porque nos falta completar o revisar algún dato de tu ficha (${shopName}).\n\nPincha aquí para completarlo, solo te llevará un minuto:\n${url}\n\nUn saludo,\nComercio Joven Cartagena`;
+    const subject = encodeURIComponent('Completa los datos de tu ficha — Comercio Joven Cartagena');
+    window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(body)}`;
+  }
+
   function copyActualizarLink(shopId){
     const url = window.location.origin + window.location.pathname + '?actualizar=' + shopId;
     navigator.clipboard?.writeText(url).then(() => alert('Enlace copiado.')).catch(() => {
@@ -5484,7 +5491,10 @@
     document.getElementById('statTotal').textContent = allSocios.length;
     document.getElementById('statAlDia').textContent = alDia;
     document.getElementById('statPendiente').textContent = pendiente;
-    document.getElementById('membersBody').innerHTML = allSocios.map((m) => `
+    document.getElementById('membersBody').innerHTML = allSocios.map((m) => {
+      const shopData = m.linked ? shops.find(sh => sh.id === m.shopId) : null;
+      const memberEmail = shopData ? shopData.contactEmail : null;
+      return `
       <tr onclick="openSocioModal('${m.linked ? 'shop' : 'legacy'}', '${m.linked ? m.shopId : m.id}')" style="cursor:pointer;">
         <td><strong style="color:#123024;">${m.shop}</strong>${!m.linked ? ' <span class="badge pendiente" style="font-size:9px; padding:2px 5px; vertical-align:middle;" title="Socio antiguo, sin vincular a una ficha de comercio">sin vincular</span>' : ''}</td>
         <td><span style="color:#123024;">${m.contact}</span><br><span style="color:var(--navy-deep); font-size:12px;">${m.phone}</span></td>
@@ -5496,12 +5506,14 @@
             ${m.linked
               ? `<button class="icon-btn" onclick="event.stopPropagation(); toggleShopMemberStatus('${m.shopId}')">Marcar ${m.status === 'al_dia' ? 'pendiente' : 'pagado'}</button>
                  <button class="icon-btn" onclick="event.stopPropagation(); sendActualizarWhatsapp('${m.shopId}', decodeURIComponent('${encodeURIComponent(m.shop)}'))" style="background:#25D366; color:#fff;" title="Enviar enlace para completar datos">📱 Pedir datos</button>
+                 ${memberEmail ? `<button class="icon-btn" onclick="event.stopPropagation(); sendActualizarEmail('${m.shopId}', decodeURIComponent('${encodeURIComponent(m.shop)}'), '${memberEmail}')" title="Enviar enlace por correo">✉️ Pedir datos</button>` : ''}
                  <button class="icon-btn danger" onclick="event.stopPropagation(); removeShopMembership('${m.shopId}')">Quitar de socios</button>`
               : `<button class="icon-btn" onclick="event.stopPropagation(); toggleMemberStatus('${m.id}')">Marcar ${m.status === 'al_dia' ? 'pendiente' : 'pagado'}</button>
                  <button class="icon-btn danger" onclick="event.stopPropagation(); deleteMember('${m.id}')">Baja</button>`}
           </div>` : ''}
         </td>
-      </tr>`).join('') || '<tr><td colspan="5" style="text-align:center; color:var(--navy-deep); padding:20px;">Todavía no hay ningún socio. Rellena los datos de socio en la ficha de un comercio, o desde el formulario de arriba.</td></tr>';
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center; color:var(--navy-deep); padding:20px;">Todavía no hay ningún socio. Rellena los datos de socio en la ficha de un comercio, o desde el formulario de arriba.</td></tr>';
 
     // Desplegable de comercios para el alta rápida de socio
     const shopSelectEl = document.getElementById('memShopSelect');
@@ -5793,7 +5805,7 @@
     previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
-    previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, copyActualizarLink,
+    previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,

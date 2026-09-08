@@ -164,7 +164,13 @@
     overflow-x:auto;
     overscroll-behavior-x:contain;
   }
-  .nav .nav-break{ flex-basis:100%; height:0; }
+  .nav .nav-label{
+    flex-basis:100%;
+    padding:8px 4px 2px;
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    color:rgba(243,238,226,0.45);
+  }
+  .nav .nav-label:first-child{ padding-top:6px; }
   .nav button{
     background:transparent;
     border:none;
@@ -880,13 +886,14 @@
 </div>
 
 <div class="nav" id="navTabs">
+  <span class="nav-label">Vista clientes</span>
   <button class="active" onclick="showView('inicio', this)">Inicio</button>
   <button onclick="showView('noticias', this)">Noticias</button>
   <button onclick="showView('cruceros', this)">Cruceros</button>
   <button onclick="showView('actividades', this)">Actividades</button>
   <button onclick="showView('comercios', this)">Comercios</button>
   <button onclick="showView('pasaporte', this)">Concurso</button>
-  <span class="nav-break"></span>
+  <span class="nav-label" id="navSocioLabel">Vista socio</span>
   <button onclick="showView('ofertas', this)" id="navOfertas">Ofertas socios</button>
   <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
   <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
@@ -5714,6 +5721,8 @@
     document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
     document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';
     document.getElementById('navForo').style.display = isSocio ? '' : 'none';
+    const socioLabelEl = document.getElementById('navSocioLabel');
+    if(socioLabelEl) socioLabelEl.style.display = isSocio ? '' : 'none';
 
     document.getElementById('newsAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('cruiseAdminPanel').style.display = isAdmin ? 'block' : 'none';

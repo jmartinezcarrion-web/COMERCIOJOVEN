@@ -889,6 +889,7 @@
   <button onclick="showView('ofertas', this)" id="navOfertas">Ofertas socios</button>
   <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
   <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
+  <button onclick="showView('foro', this)" id="navForo">Foro de socios</button>
   <button onclick="showView('socio', this)">Hazte socio</button>
   <button onclick="showView('gestion', this)" id="navGestion">Socios y pagos</button>
 </div>
@@ -1482,6 +1483,22 @@
     <div id="miComercioArea"></div>
   </section>
 
+  <!-- FORO DE SOCIOS (solo socios y administración con sesión iniciada) -->
+  <section class="view" id="view-foro">
+    <div class="section-title">
+      <h2>💬 Foro de socios</h2>
+    </div>
+    <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Un espacio para hablar entre socios: propuestas, dudas, avisos... Solo lo veis los socios y la asociación.</p>
+    <div class="card" style="margin-bottom:20px;">
+      <form onsubmit="return publishForumPost(event)">
+        <div class="field"><label>Título</label><input type="text" id="forumTitle" required placeholder="Ej: ¿Compramos juntos la decoración de Navidad?"></div>
+        <div class="field"><label>Mensaje</label><textarea id="forumBody" required rows="3" placeholder="Cuenta tu propuesta o pregunta..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
+        <button class="btn teal" type="submit" id="forumPostBtn">Publicar tema</button>
+      </form>
+    </div>
+    <div id="forumList"></div>
+  </section>
+
   <!-- HAZTE SOCIO -->
   <section class="view" id="view-socio">
     <div class="section-title"><h2>Ficha de futuro socio</h2></div>
@@ -1769,6 +1786,10 @@
   let actualizarShopData = null;
   let pendingActualizarPhotoFile = null;
   let pendingActualizarLogoFile = null;
+  // ===== Foro de socios =====
+  let forumPosts = [];
+  let forumComments = [];
+  let forumOpenPostId = null; // qué tema tiene el cuadro de comentarios desplegado
 
   // ===== Pasaporte de comercios =====
   let passportSettings = { threshold: null, rewardText: '', howItWorks: '', shopIds: [] };
@@ -1979,6 +2000,16 @@
     surveyResponses = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     renderAll();
   }, err => console.error('Error leyendo respuestas de encuestas:', err));
+
+  onSnapshot(query(collection(db,'forum_posts'), orderBy('createdAt','desc')), snap => {
+    forumPosts = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    renderAll();
+  }, err => console.error('Error leyendo el foro:', err));
+
+  onSnapshot(query(collection(db,'forum_comments'), orderBy('createdAt','asc')), snap => {
+    forumComments = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    renderAll();
+  }, err => console.error('Error leyendo comentarios del foro:', err));
 
   function previewOfferImage(e){
     const file = e.target.files[0];
@@ -4733,6 +4764,117 @@
     });
   }
 
+  // ===== Foro de socios (solo con sesión iniciada: socio o administración) =====
+  function forumAuthorName(){
+    if(!auth.currentUser) return 'Anónimo';
+    if(userMode === 'admin') return 'Administración';
+    const shop = findMiComercio();
+    return shop ? shop.name : auth.currentUser.email;
+  }
+
+  async function publishForumPost(e){
+    e.preventDefault();
+    if(!auth.currentUser){ alert('Tienes que iniciar sesión como socio para publicar.'); return false; }
+    const title = document.getElementById('forumTitle').value.trim();
+    const body = document.getElementById('forumBody').value.trim();
+    if(!title || !body) return false;
+    const btn = document.getElementById('forumPostBtn');
+    btn.disabled = true; btn.textContent = 'Publicando...';
+    try{
+      await addDoc(collection(db,'forum_posts'), {
+        title, body, authorName: forumAuthorName(), authorUid: auth.currentUser.uid, createdAt: serverTimestamp()
+      });
+      document.getElementById('forumTitle').value = '';
+      document.getElementById('forumBody').value = '';
+    } catch(err){
+      alert('No se pudo publicar. Revisa la conexión e inténtalo otra vez.');
+      console.error(err);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Publicar tema';
+    }
+    return false;
+  }
+
+  async function deleteForumPost(id){
+    if(!confirm('¿Eliminar este tema y sus comentarios?')) return;
+    try{
+      await deleteDoc(doc(db,'forum_posts', id));
+      const related = forumComments.filter(c => c.postId === id);
+      for(const c of related) await deleteDoc(doc(db,'forum_comments', c.id));
+    } catch(err){ alert('No se pudo eliminar.'); console.error(err); }
+  }
+
+  async function deleteForumComment(id){
+    if(!confirm('¿Eliminar este comentario?')) return;
+    try{ await deleteDoc(doc(db,'forum_comments', id)); }
+    catch(err){ alert('No se pudo eliminar.'); console.error(err); }
+  }
+
+  function toggleForumComments(postId){
+    forumOpenPostId = (forumOpenPostId === postId) ? null : postId;
+    renderForum();
+  }
+
+  async function submitForumComment(e, postId){
+    e.preventDefault();
+    if(!auth.currentUser) return false;
+    const input = document.getElementById('forumCommentInput_' + postId);
+    const body = input.value.trim();
+    if(!body) return false;
+    try{
+      await addDoc(collection(db,'forum_comments'), {
+        postId, body, authorName: forumAuthorName(), authorUid: auth.currentUser.uid, createdAt: serverTimestamp()
+      });
+      input.value = '';
+    } catch(err){
+      alert('No se pudo enviar el comentario.'); console.error(err);
+    }
+    return false;
+  }
+
+  function forumDate(ts){
+    if(!ts || !ts.toDate) return '';
+    return ts.toDate().toLocaleDateString('es-ES', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function renderForum(){
+    const wrap = document.getElementById('forumList');
+    if(!wrap) return;
+    if(!isSocio && !isAdmin){ wrap.innerHTML = ''; return; }
+    if(!forumPosts.length){ wrap.innerHTML = '<p style="color:var(--navy-deep); font-size:13px;">Todavía no hay ningún tema. ¡Sé el primero en publicar!</p>'; return; }
+    // No reconstruir mientras alguien está escribiendo un comentario, para no perder lo escrito.
+    if(wrap.contains(document.activeElement)) return;
+    wrap.innerHTML = forumPosts.map(p => {
+      const comments = forumComments.filter(c => c.postId === p.id);
+      const open = forumOpenPostId === p.id;
+      return `
+        <div style="border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:14px; background:#fff;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+            <h4 style="margin:0 0 4px; font-size:15px; color:var(--navy);">${p.title}</h4>
+            ${isAdmin ? `<button class="icon-btn" type="button" onclick="deleteForumPost('${p.id}')" title="Eliminar tema" style="flex-shrink:0;">🗑️</button>` : ''}
+          </div>
+          <p style="margin:0 0 8px; font-size:11.5px; color:var(--navy-deep);">${p.authorName || 'Socio'} · ${forumDate(p.createdAt)}</p>
+          <p style="margin:0 0 12px; font-size:13.5px; color:#123024; white-space:pre-wrap;">${p.body}</p>
+          <button class="icon-btn" type="button" onclick="toggleForumComments('${p.id}')">💬 ${comments.length} comentario${comments.length === 1 ? '' : 's'}${open ? ' ▲' : ' ▼'}</button>
+          ${open ? `
+            <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line);">
+              ${comments.map(c => `
+                <div style="margin-bottom:10px; padding:10px 12px; background:var(--sand); border-radius:6px;">
+                  <div style="display:flex; justify-content:space-between; gap:8px;">
+                    <p style="margin:0 0 3px; font-size:11.5px; font-weight:700; color:var(--navy-deep);">${c.authorName || 'Socio'} · ${forumDate(c.createdAt)}</p>
+                    ${isAdmin ? `<button class="icon-btn" type="button" onclick="deleteForumComment('${c.id}')" style="font-size:10px; padding:2px 6px;">✕</button>` : ''}
+                  </div>
+                  <p style="margin:0; font-size:13px; color:#123024; white-space:pre-wrap;">${c.body}</p>
+                </div>`).join('') || '<p style="font-size:12.5px; color:var(--navy-deep); margin:0 0 10px;">Sé el primero en comentar.</p>'}
+              <form onsubmit="return submitForumComment(event, '${p.id}')" style="display:flex; gap:8px; margin-top:8px;">
+                <input type="text" id="forumCommentInput_${p.id}" placeholder="Escribe un comentario..." style="flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:13.5px; font-family:'Inter',sans-serif;">
+                <button class="icon-btn" type="submit">Enviar</button>
+              </form>
+            </div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
   function previewCollabLogo(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -5066,6 +5208,7 @@
     renderSurveysList();
     renderSurveysListSocio();
     renderMiComercio();
+    renderForum();
 
     // Portada de Inicio (texto público + formularios de administrador)
     const heroEyebrowEl = document.getElementById('heroEyebrowText');
@@ -5563,6 +5706,7 @@
     document.getElementById('navOfertas').style.display = isSocio ? '' : 'none';
     document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
     document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';
+    document.getElementById('navForo').style.display = isSocio ? '' : 'none';
 
     document.getElementById('newsAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('cruiseAdminPanel').style.display = isAdmin ? 'block' : 'none';
@@ -5616,6 +5760,7 @@
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, copyActualizarLink,
+    publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

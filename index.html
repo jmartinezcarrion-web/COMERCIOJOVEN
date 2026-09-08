@@ -888,6 +888,7 @@
   <button onclick="showView('edicion', this)" id="navEdicion">Edición</button>
   <button onclick="showView('ofertas', this)" id="navOfertas">Ofertas socios</button>
   <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
+  <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
   <button onclick="showView('socio', this)">Hazte socio</button>
   <button onclick="showView('gestion', this)" id="navGestion">Socios y pagos</button>
 </div>
@@ -1471,6 +1472,14 @@
     <div id="surveysListSocio"></div>
   </section>
 
+  <!-- MI COMERCIO (autoedición, solo socio con cuenta vinculada por correo) -->
+  <section class="view" id="view-micomercio">
+    <div class="section-title">
+      <h2>🏪 Mi comercio</h2>
+    </div>
+    <div id="miComercioArea"></div>
+  </section>
+
   <!-- HAZTE SOCIO -->
   <section class="view" id="view-socio">
     <div class="section-title"><h2>Ficha de futuro socio</h2></div>
@@ -1740,6 +1749,8 @@
   let encuestaData = null;
   let encuestaSubmitted = false;
   let encuestaAlreadyVoted = false;
+  let pendingMiComercioPhotoFile = null;
+  let pendingMiComercioLogoFile = null;
 
   // ===== Pasaporte de comercios =====
   let passportSettings = { threshold: null, rewardText: '', howItWorks: '', shopIds: [] };
@@ -4432,6 +4443,104 @@
     return false;
   }
 
+  // ===== Mi comercio (autoedición para socios con sesión, vinculado por correo) =====
+  function findMiComercio(){
+    if(!auth.currentUser || !auth.currentUser.email) return null;
+    const email = auth.currentUser.email.toLowerCase();
+    return shops.find(s => (s.contactEmail || '').toLowerCase() === email) || null;
+  }
+
+  function previewMiComercioPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingMiComercioPhotoFile = file;
+    document.getElementById('miComercioPhotoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto">`;
+  }
+
+  function previewMiComercioLogo(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingMiComercioLogoFile = file;
+    document.getElementById('miComercioLogoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Logo">`;
+  }
+
+  function renderMiComercio(){
+    const area = document.getElementById('miComercioArea');
+    if(!area) return;
+    if(!auth.currentUser){ area.innerHTML = '<p style="color:var(--navy-deep);">Inicia sesión como socio para editar tu comercio.</p>'; return; }
+    const s = findMiComercio();
+    if(!s){
+      area.innerHTML = `<p style="color:var(--navy-deep);">No hemos encontrado ningún comercio vinculado a tu correo (${auth.currentUser.email}). Pide a la asociación que revise el correo guardado en tu ficha de socio.</p>`;
+      return;
+    }
+    if(area.contains(document.activeElement) && area.querySelector('form')) return;
+    area.innerHTML = `
+      <div class="card">
+        <p style="margin:0 0 16px; font-size:13px; color:var(--navy-deep);">Estos son los datos públicos de tu comercio en el directorio. Cambia lo que necesites y guarda.</p>
+        <form onsubmit="return saveMiComercio(event)">
+          <div class="field"><label>Nombre del comercio</label><input type="text" id="miComercioName" required value="${s.name || ''}"></div>
+          <div class="field"><label>Sector</label><input type="text" id="miComercioCat" value="${s.cat || ''}"></div>
+          <div class="field"><label>Dirección</label><input type="text" id="miComercioAddress" value="${s.address || ''}"></div>
+          <div class="field"><label>Teléfono (visible a clientes)</label><input type="tel" id="miComercioPhone" value="${s.phone || ''}"></div>
+          <div class="field"><label>Página web</label><input type="text" id="miComercioWebsite" value="${s.website || ''}"></div>
+          <div class="logo-upload">
+            <div class="logo-preview small" id="miComercioPhotoPreview">${s.photo ? `<img src="${s.photo}" alt="Foto">` : '<span>Sin foto</span>'}</div>
+            <div style="flex:1">
+              <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--navy);">Foto del negocio</label>
+              <input type="file" accept="image/*" id="miComercioPhotoInput" onchange="previewMiComercioPhoto(event)">
+            </div>
+          </div>
+          <div class="logo-upload">
+            <div class="logo-preview small" id="miComercioLogoPreview">${s.logo ? `<img src="${s.logo}" alt="Logo">` : '<span>Sin logo</span>'}</div>
+            <div style="flex:1">
+              <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--navy);">Logo</label>
+              <input type="file" accept="image/*" id="miComercioLogoInput" onchange="previewMiComercioLogo(event)">
+            </div>
+          </div>
+          <button class="btn teal" type="submit" id="miComercioSaveBtn">Guardar cambios</button>
+          <span id="miComercioStatus" style="margin-left:10px; font-size:12.5px; color:var(--teal-deep);"></span>
+        </form>
+      </div>`;
+  }
+
+  async function saveMiComercio(e){
+    e.preventDefault();
+    const s = findMiComercio();
+    if(!s) return false;
+    const btn = document.getElementById('miComercioSaveBtn');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    try{
+      const name = document.getElementById('miComercioName').value.trim();
+      const cat = document.getElementById('miComercioCat').value.trim();
+      const address = document.getElementById('miComercioAddress').value.trim();
+      const phone = document.getElementById('miComercioPhone').value.trim();
+      const website = document.getElementById('miComercioWebsite').value.trim();
+      let photo = s.photo || null;
+      if(pendingMiComercioPhotoFile){
+        const fileRef = ref(storage, `shops/${Date.now()}_${pendingMiComercioPhotoFile.name}`);
+        await uploadBytes(fileRef, pendingMiComercioPhotoFile);
+        photo = await getDownloadURL(fileRef);
+      }
+      let logo = s.logo || null;
+      if(pendingMiComercioLogoFile){
+        const fileRef = ref(storage, `logos/${Date.now()}_${pendingMiComercioLogoFile.name}`);
+        await uploadBytes(fileRef, pendingMiComercioLogoFile);
+        logo = await getDownloadURL(fileRef);
+      }
+      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, photo, logo });
+      pendingMiComercioPhotoFile = null;
+      pendingMiComercioLogoFile = null;
+      const status = document.getElementById('miComercioStatus');
+      if(status){ status.textContent = '✓ Guardado'; setTimeout(()=> status.textContent = '', 3000); }
+    } catch(err){
+      alert('No se pudo guardar. Revisa la conexión e inténtalo otra vez.');
+      console.error(err);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar cambios';
+    }
+    return false;
+  }
+
   function previewCollabLogo(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -4760,6 +4869,7 @@
     renderSurveyOptionsList();
     renderSurveysList();
     renderSurveysListSocio();
+    renderMiComercio();
 
     // Portada de Inicio (texto público + formularios de administrador)
     const heroEyebrowEl = document.getElementById('heroEyebrowText');
@@ -5251,6 +5361,7 @@
     document.getElementById('navColaboradores').style.display = isAdmin ? '' : 'none';
     document.getElementById('navOfertas').style.display = isSocio ? '' : 'none';
     document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
+    document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';
 
     document.getElementById('newsAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('cruiseAdminPanel').style.display = isAdmin ? 'block' : 'none';
@@ -5301,6 +5412,7 @@
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
+    previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

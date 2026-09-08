@@ -187,6 +187,11 @@
     color:var(--sand);
     border-bottom-color:var(--brick);
   }
+  .nav-badge{
+    display:inline-block; margin-left:5px; background:var(--brick);
+    color:#fff; font-size:10px; font-weight:700; line-height:1;
+    padding:2px 6px; border-radius:10px; vertical-align:middle;
+  }
 
   /* ===== Pestañas de concursos (cuando hay más de uno activo) ===== */
   .contest-subnav{
@@ -888,7 +893,7 @@
 <div class="nav" id="navTabs">
   <span class="nav-label">Vista clientes</span>
   <button class="active" onclick="showView('inicio', this)">Inicio</button>
-  <button onclick="showView('noticias', this)">Noticias</button>
+  <button onclick="showView('noticias', this)">Noticias<span class="nav-badge" id="newsProposalsBadge" style="display:none"></span></button>
   <button onclick="showView('actividades', this)">Actividades</button>
   <button onclick="showView('comercios', this)">Comercios</button>
   <button onclick="showView('pasaporte', this)">Concurso</button>
@@ -4959,7 +4964,6 @@
         title, body, image: imageUrl, authorName: forumAuthorName(), authorUid: auth.currentUser.uid,
         status: 'pendiente', createdAt: serverTimestamp()
       });
-      notifyAdminByEmail('Nueva noticia propuesta por un socio', `${forumAuthorName()} ha propuesto la noticia "${title}". Entra en la app, pestaña Noticias, para revisarla y publicarla.`);
       document.getElementById('newsProposalTitle').value = '';
       document.getElementById('newsProposalBody').value = '';
       pendingNewsProposalImageFile = null;
@@ -4995,6 +4999,11 @@
     const wrap = document.getElementById('newsProposalsList');
     if(!wrap) return;
     const pending = newsProposals.filter(p => p.status === 'pendiente');
+    const badge = document.getElementById('newsProposalsBadge');
+    if(badge){
+      if(isAdmin && pending.length){ badge.style.display = 'inline-block'; badge.textContent = pending.length; }
+      else { badge.style.display = 'none'; }
+    }
     if(!pending.length){ wrap.innerHTML = '<p class="collab-empty">No hay propuestas de socios esperando revisión.</p>'; return; }
     wrap.innerHTML = pending.map(p => `
       <div style="border:1px solid var(--line); border-radius:6px; padding:14px 16px; margin-bottom:14px; background:#fff;">
@@ -5013,16 +5022,6 @@
       </div>`).join('');
   }
 
-  // Aviso por correo al administrador cuando un socio propone algo (usa
-  // EmailJS, un servicio externo gratuito para enviar correos desde el
-  // navegador sin necesitar servidor propio — hace falta configurarlo una
-  // vez; hasta entonces esta función no hace nada, solo no falla).
-  function notifyAdminByEmail(subject, message){
-    if(typeof emailjs === 'undefined' || !window.EMAILJS_CONFIGURED) return;
-    emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, {
-      to_email: window.ADMIN_NOTIFY_EMAIL, subject, message
-    }).catch(err => console.error('No se pudo enviar el aviso por correo:', err));
-  }
 
   function previewCollabLogo(e){
     const file = e.target.files[0];

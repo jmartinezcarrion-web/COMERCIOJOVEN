@@ -903,6 +903,7 @@
   <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
   <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
   <button onclick="showView('foro', this)" id="navForo">Foro de socios</button>
+  <button onclick="showView('subirnoticia', this)" id="navSubirNoticia">Subir noticia</button>
   <button onclick="showView('socio', this)">Hazte socio</button>
   <button onclick="showView('colaboradores', this)" id="navColaboradores">Colaboradores</button>
   <button onclick="showView('edicion', this)" id="navEdicion">Edición</button>
@@ -1515,18 +1516,40 @@
     </div>
     <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Un espacio para hablar entre socios: propuestas, dudas, avisos... Solo lo veis los socios y la asociación.</p>
     <div class="card" style="margin-bottom:20px;">
-      <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">📰 Noticias y avisos</h3>
-      <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Elige si es algo formal para la web (la revisa la asociación antes de publicarla) o un aviso rápido informal solo para socios (se publica al momento).</p>
+      <form onsubmit="return publishForumPost(event)">
+        <div class="field"><label>Título</label><input type="text" id="forumTitle" required placeholder="Ej: ¿Compramos juntos la decoración de Navidad?"></div>
+        <div class="field"><label>Mensaje</label><textarea id="forumBody" required rows="3" placeholder="Cuenta tu propuesta o pregunta..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
+        <button class="btn teal" type="submit" id="forumPostBtn">Publicar tema</button>
+      </form>
+    </div>
+    <div id="forumList"></div>
+  </section>
+
+  <!-- SUBIR NOTICIA (socios) -->
+  <section class="view" id="view-subirnoticia">
+    <div class="section-title">
+      <h2>📰 Subir noticia</h2>
+    </div>
+    <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Elige primero para quién es, y luego escribe la noticia.</p>
+
+    <div id="newsTypeChoice" style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px;">
+      <button type="button" onclick="selectNewsType('formal')" style="flex:1; min-width:200px; text-align:left; padding:20px; border:2px solid var(--navy); border-radius:10px; background:#fff; cursor:pointer;">
+        <div style="font-size:26px; margin-bottom:6px;">📰</div>
+        <div style="font-weight:700; font-size:15px; color:var(--navy);">Noticia para la web</div>
+        <div style="font-size:12.5px; color:var(--navy-deep); margin-top:4px;">La revisa la asociación antes de publicarla. La verán todos los clientes.</div>
+      </button>
+      <button type="button" onclick="selectNewsType('informal')" style="flex:1; min-width:200px; text-align:left; padding:20px; border:2px solid var(--teal); border-radius:10px; background:#fff; cursor:pointer;">
+        <div style="font-size:26px; margin-bottom:6px;">💬</div>
+        <div style="font-weight:700; font-size:15px; color:var(--teal-deep);">Noticia para los socios</div>
+        <div style="font-size:12.5px; color:var(--navy-deep); margin-top:4px;">Se publica al momento, sin revisión. Solo la ven otros socios, nunca clientes.</div>
+      </button>
+    </div>
+
+    <div class="card" id="newsProposalFormWrap" style="display:none;">
+      <p id="newsTypeSelectedLabel" style="margin:0 0 16px; font-size:13.5px; font-weight:700;"></p>
       <form onsubmit="return submitNewsProposal(event)">
-        <div class="field">
-          <label>Tipo</label>
-          <select id="newsProposalType" onchange="updateNewsProposalTypeUI()">
-            <option value="formal">📰 Noticia formal para la web (necesita aprobación, la ven los clientes)</option>
-            <option value="informal">💬 Aviso informal solo para socios (se publica al momento, sin revisión)</option>
-          </select>
-        </div>
         <div class="field"><label>Título</label><input type="text" id="newsProposalTitle" required placeholder="Ej: Nueva carta de otoño en mi restaurante"></div>
-        <div class="field"><label>Texto</label><textarea id="newsProposalBody" required rows="3" placeholder="Cuenta la noticia o el aviso..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
+        <div class="field"><label>Texto</label><textarea id="newsProposalBody" required rows="3" placeholder="Cuenta la noticia..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
         <div class="logo-upload">
           <div class="logo-preview small" id="newsProposalImagePreview"><span>Sin foto</span></div>
           <div style="flex:1">
@@ -1535,17 +1558,10 @@
           </div>
         </div>
         <button class="btn teal" type="submit" id="newsProposalBtn">Enviar para revisión</button>
+        <button class="icon-btn" type="button" onclick="cancelNewsProposalType()" style="margin-left:8px;">Cambiar tipo</button>
         <span id="newsProposalStatus" style="margin-left:10px; font-size:12.5px; color:var(--teal-deep);"></span>
       </form>
     </div>
-    <div class="card" style="margin-bottom:20px;">
-      <form onsubmit="return publishForumPost(event)">
-        <div class="field"><label>Título</label><input type="text" id="forumTitle" required placeholder="Ej: ¿Compramos juntos la decoración de Navidad?"></div>
-        <div class="field"><label>Mensaje</label><textarea id="forumBody" required rows="3" placeholder="Cuenta tu propuesta o pregunta..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
-        <button class="btn teal" type="submit" id="forumPostBtn">Publicar tema</button>
-      </form>
-    </div>
-    <div id="forumList"></div>
   </section>
 
   <!-- HAZTE SOCIO -->
@@ -1842,6 +1858,7 @@
   // ===== Propuestas de noticias de socios =====
   let newsProposals = [];
   let pendingNewsProposalImageFile = null;
+  let selectedNewsType = null; // 'formal' | 'informal' — elegido con los dos botones grandes, no con un desplegable
 
   // ===== Pasaporte de comercios =====
   let passportSettings = { threshold: null, rewardText: '', howItWorks: '', shopIds: [] };
@@ -4951,15 +4968,31 @@
     document.getElementById('newsProposalImagePreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto">`;
   }
 
-  function updateNewsProposalTypeUI(){
-    const type = document.getElementById('newsProposalType').value;
+  function selectNewsType(type){
+    selectedNewsType = type;
+    document.getElementById('newsTypeChoice').style.display = 'none';
+    document.getElementById('newsProposalFormWrap').style.display = 'block';
+    const label = document.getElementById('newsTypeSelectedLabel');
+    if(type === 'informal'){
+      label.textContent = '💬 Vas a publicar un aviso solo para socios (se publica al momento).';
+      label.style.color = 'var(--teal-deep)';
+    } else {
+      label.textContent = '📰 Vas a proponer una noticia para la web (la revisará la asociación).';
+      label.style.color = 'var(--navy)';
+    }
     document.getElementById('newsProposalBtn').textContent = type === 'informal' ? 'Publicar aviso' : 'Enviar para revisión';
+  }
+
+  function cancelNewsProposalType(){
+    selectedNewsType = null;
+    document.getElementById('newsTypeChoice').style.display = 'flex';
+    document.getElementById('newsProposalFormWrap').style.display = 'none';
   }
 
   async function submitNewsProposal(e){
     e.preventDefault();
     if(!auth.currentUser){ alert('Tienes que iniciar sesión como socio para publicar.'); return false; }
-    const type = document.getElementById('newsProposalType').value;
+    const type = selectedNewsType || 'formal';
     const title = document.getElementById('newsProposalTitle').value.trim();
     const body = document.getElementById('newsProposalBody').value.trim();
     if(!title || !body) return false;
@@ -4990,10 +5023,9 @@
       document.getElementById('newsProposalBody').value = '';
       pendingNewsProposalImageFile = null;
       document.getElementById('newsProposalImagePreview').innerHTML = '<span>Sin foto</span>';
-      status.textContent = '✓ Enviada, en revisión.';
-      setTimeout(()=> status.textContent = '', 4000);
+      setTimeout(()=> { status.textContent = ''; cancelNewsProposalType(); }, 2500);
     } catch(err){
-      alert('No se pudo enviar la propuesta. Revisa la conexión e inténtalo otra vez.');
+      alert('No se pudo enviar. Revisa la conexión e inténtalo otra vez.');
       console.error(err);
     } finally {
       btn.disabled = false; btn.textContent = type === 'informal' ? 'Publicar aviso' : 'Enviar para revisión';
@@ -5904,6 +5936,7 @@
     document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
     document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';
     document.getElementById('navForo').style.display = isSocio ? '' : 'none';
+    document.getElementById('navSubirNoticia').style.display = isSocio ? '' : 'none';
     const socioLabelEl = document.getElementById('navSocioLabel');
     if(socioLabelEl) socioLabelEl.style.display = isSocio ? '' : 'none';
 
@@ -5962,7 +5995,7 @@
     previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
-    previewNewsProposalImage, submitNewsProposal, updateNewsProposalTypeUI, approveNewsProposal, rejectNewsProposal,
+    previewNewsProposalImage, submitNewsProposal, selectNewsType, cancelNewsProposalType, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

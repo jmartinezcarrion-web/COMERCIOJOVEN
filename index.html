@@ -1531,6 +1531,24 @@
       <p style="margin:6px 0 0; font-size:11.5px; color:var(--navy-deep);">¿No aparece el comercio en la lista? Primero dalo de alta en la pestaña Comercios — luego volverá a aparecer aquí.</p>
     </div>
 
+    <div class="admin-panel" id="surveysAdminPanel" style="display:none">
+      <span class="tag">📊 Encuestas a socios (administrador)</span>
+      <p style="margin:0 0 14px; font-size:13px; color:#123024;">Escribe la pregunta y las opciones, publica la encuesta, y comparte el enlace que se genera por WhatsApp — cualquiera que lo abra puede votar sin necesitar cuenta.</p>
+      <div class="field"><label>Pregunta / título de la encuesta</label><input type="text" id="surveyTitle" placeholder="Ej: ¿Qué día prefieres para la próxima reunión?"></div>
+      <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--navy);">Opciones</label>
+      <div id="surveyOptionsList"></div>
+      <button class="icon-btn" type="button" onclick="addSurveyOption()" style="margin:4px 0 14px;">+ Añadir opción</button>
+      <div><button class="btn" type="button" onclick="publishSurvey()">Publicar encuesta</button></div>
+      <p style="margin:16px 0 0; font-size:11px; color:var(--navy-deep);">Cualquier persona con el enlace puede votar una vez desde su dispositivo — no hace falta ser socio ni tener cuenta.</p>
+    </div>
+
+    <div class="card" id="surveysListCard" style="display:none">
+      <div class="section-title" style="margin-bottom:10px;">
+        <h3 style="margin:0; font-size:15px;">Encuestas publicadas</h3>
+      </div>
+      <div id="surveysList"></div>
+    </div>
+
     <div class="card">
       <div class="table-scroll">
       <table class="member-table">
@@ -1550,6 +1568,14 @@
     </div>
     <div id="altaFormArea"></div>
     <p id="altaHomeLink" style="text-align:center; margin-top:24px;"><a href="/" style="color:var(--teal-deep); font-size:13px;">← Ir a la página principal</a></p>
+  </section>
+
+  <!-- ENCUESTA POR ENLACE (pública, sin necesitar sesión — se abre con ?encuesta=ID) -->
+  <section class="view" id="view-encuesta">
+    <div class="section-title">
+      <h2>📊 Encuesta</h2>
+    </div>
+    <div id="encuestaFormArea"></div>
   </section>
 
   <div class="collab-section">
@@ -1694,6 +1720,17 @@
   let lastInviteEmail = null;
   let socioModalTarget = null; // { type:'shop'|'legacy', id } — ficha abierta en el modal de Socios y pagos
   let pendingOfferImageFile = null;
+
+  // ===== Encuestas a socios =====
+  let surveys = [];
+  let surveyResponses = [];
+  let pendingSurveyOptions = ['', ''];
+  // Encuesta pública por enlace (?encuesta=ID) — no requiere sesión para
+  // responder, igual que el formulario de alta de comercio.
+  let encuestaId = null;
+  let encuestaData = null;
+  let encuestaSubmitted = false;
+  let encuestaAlreadyVoted = false;
 
   // ===== Pasaporte de comercios =====
   let passportSettings = { threshold: null, rewardText: '', howItWorks: '', shopIds: [] };
@@ -1893,6 +1930,17 @@
     offers = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     renderAll();
   }, err => console.error('Error leyendo ofertas entre socios:', err));
+
+  onSnapshot(query(collection(db,'surveys'), orderBy('createdAt','desc')), snap => {
+    surveys = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    renderAll();
+    if(encuestaId) renderEncuesta();
+  }, err => console.error('Error leyendo encuestas:', err));
+
+  onSnapshot(collection(db,'survey_responses'), snap => {
+    surveyResponses = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    renderAll();
+  }, err => console.error('Error leyendo respuestas de encuestas:', err));
 
   function previewOfferImage(e){
     const file = e.target.files[0];
@@ -4170,6 +4218,183 @@
     return false;
   }
 
+  // ===== Encuestas a socios (administrador) =====
+  function renderSurveyOptionsList(){
+    const wrap = document.getElementById('surveyOptionsList');
+    if(!wrap) return;
+    if(wrap.contains(document.activeElement)) return;
+    wrap.innerHTML = pendingSurveyOptions.map((val, i) => `
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <input type="text" value="${val.replace(/"/g,'&quot;')}" placeholder="Opción ${i+1}" oninput="updateSurveyOption(${i}, this.value)" style="flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif;">
+        ${pendingSurveyOptions.length > 2 ? `<button class="icon-btn" type="button" onclick="removeSurveyOption(${i})" title="Quitar opción">✕</button>` : ''}
+      </div>`).join('');
+  }
+
+  function updateSurveyOption(i, val){ pendingSurveyOptions[i] = val; }
+
+  function addSurveyOption(){
+    if(pendingSurveyOptions.length >= 8){ alert('Máximo 8 opciones.'); return; }
+    pendingSurveyOptions.push('');
+    renderSurveyOptionsList();
+  }
+
+  function removeSurveyOption(i){
+    pendingSurveyOptions.splice(i, 1);
+    renderSurveyOptionsList();
+  }
+
+  async function publishSurvey(){
+    const title = document.getElementById('surveyTitle').value.trim();
+    if(!title){ alert('Escribe la pregunta de la encuesta.'); return; }
+    const options = pendingSurveyOptions.map(o => o.trim()).filter(Boolean);
+    if(options.length < 2){ alert('Escribe al menos 2 opciones.'); return; }
+    try{
+      await addDoc(collection(db,'surveys'), {
+        title,
+        options: options.map((text, i) => ({ id: 'opt' + i, text })),
+        active: true,
+        createdAt: serverTimestamp()
+      });
+      document.getElementById('surveyTitle').value = '';
+      pendingSurveyOptions = ['', ''];
+      renderSurveyOptionsList();
+      alert('✓ Encuesta publicada. Ya puedes compartir su enlace más abajo.');
+    } catch(err){
+      alert('No se pudo publicar la encuesta.'); console.error(err);
+    }
+  }
+
+  function buildSurveyMessage(title, url){
+    return `📊 Encuesta de Comercio Joven Cartagena\n\n${title}\n\nResponde aquí, solo te llevará un segundo:\n${url}`;
+  }
+
+  function copySurveyLink(id){
+    const url = window.location.origin + window.location.pathname + '?encuesta=' + id;
+    navigator.clipboard?.writeText(url).then(() => alert('Enlace copiado.')).catch(() => {
+      alert('No se pudo copiar automáticamente. El enlace es:\n' + url);
+    });
+  }
+
+  function openSurveyWhatsapp(id){
+    const s = surveys.find(x => x.id === id);
+    const url = window.location.origin + window.location.pathname + '?encuesta=' + id;
+    const text = encodeURIComponent(buildSurveyMessage(s ? s.title : 'Encuesta', url));
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  }
+
+  async function deleteSurvey(id){
+    if(!confirm('¿Eliminar esta encuesta? Se perderán también sus resultados.')) return;
+    try{ await deleteDoc(doc(db,'surveys', id)); }
+    catch(err){ alert('No se pudo eliminar.'); console.error(err); }
+  }
+
+  function renderSurveysList(){
+    const wrap = document.getElementById('surveysList');
+    if(!wrap) return;
+    if(!surveys.length){ wrap.innerHTML = '<p style="color:var(--navy-deep); font-size:13px;">Todavía no has publicado ninguna encuesta.</p>'; return; }
+    wrap.innerHTML = surveys.map(s => {
+      const responses = surveyResponses.filter(r => r.surveyId === s.id);
+      const total = responses.length;
+      const url = window.location.origin + window.location.pathname + '?encuesta=' + s.id;
+      const bars = (s.options || []).map(opt => {
+        const count = responses.filter(r => r.optionId === opt.id).length;
+        const pct = total ? Math.round((count / total) * 100) : 0;
+        return `
+          <div style="margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:12.5px; color:#123024; margin-bottom:3px;">
+              <span>${opt.text}</span><span>${count} (${pct}%)</span>
+            </div>
+            <div style="background:var(--sand-2); border-radius:4px; height:8px; overflow:hidden;">
+              <div style="background:var(--teal); height:100%; width:${pct}%;"></div>
+            </div>
+          </div>`;
+      }).join('');
+      return `
+        <div style="border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; background:#fff;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+            <h4 style="margin:0 0 4px; font-size:14.5px;">${s.title}</h4>
+            <button class="icon-btn" type="button" onclick="deleteSurvey('${s.id}')" title="Eliminar encuesta" style="flex-shrink:0;">🗑️</button>
+          </div>
+          <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'}</p>
+          ${bars}
+          <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="icon-btn" type="button" onclick="copySurveyLink('${s.id}')">📋 Copiar enlace</button>
+            <button class="icon-btn" type="button" onclick="openSurveyWhatsapp('${s.id}')" style="background:#25D366; color:#fff;">📱 Enviar por WhatsApp</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ===== Encuesta pública por enlace (?encuesta=ID) — sin necesitar sesión =====
+  function handleEncuestaFromUrl(){
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('encuesta');
+    if(!id) return;
+    encuestaId = id;
+    encuestaAlreadyVoted = !!localStorage.getItem('encuesta_voted_' + id);
+    document.body.classList.add('alta-only');
+    showView('encuesta', null);
+    renderEncuesta();
+  }
+
+  function renderEncuesta(){
+    const area = document.getElementById('encuestaFormArea');
+    if(!area || !encuestaId) return;
+    const s = surveys.find(x => x.id === encuestaId);
+    if(!s){
+      area.innerHTML = surveys.length
+        ? '<p style="color:var(--navy-deep);">Esta encuesta no existe o ha sido eliminada.</p>'
+        : '<p style="color:var(--navy-deep);">Cargando...</p>';
+      return;
+    }
+    if(encuestaSubmitted || encuestaAlreadyVoted){
+      area.innerHTML = `
+        <div class="passport-complete">
+          <h3>✓ ¡Gracias por responder!</h3>
+          <p>Tu respuesta a "${s.title}" ha quedado registrada.</p>
+        </div>`;
+      return;
+    }
+    // Si el usuario ya está escribiendo/seleccionando en el formulario, no lo
+    // reconstruimos al llegar una actualización en directo.
+    if(area.contains(document.activeElement) && area.querySelector('form')) return;
+    area.innerHTML = `
+      <div class="card">
+        <h3 style="margin:0 0 16px; color:var(--navy);">${s.title}</h3>
+        <form onsubmit="return submitEncuestaForm(event)">
+          ${(s.options || []).map((opt, i) => `
+            <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; margin-bottom:8px; cursor:pointer; background:#fff;">
+              <input type="radio" name="encuestaOption" value="${opt.id}" required style="width:auto;">
+              <span style="font-size:14px; color:#123024;">${opt.text}</span>
+            </label>`).join('')}
+          <button class="btn teal" type="submit" id="encuestaSubmitBtn" style="margin-top:8px;">Enviar respuesta</button>
+        </form>
+      </div>`;
+  }
+
+  async function submitEncuestaForm(e){
+    e.preventDefault();
+    const selected = document.querySelector('input[name="encuestaOption"]:checked');
+    if(!selected){ alert('Elige una opción.'); return false; }
+    const s = surveys.find(x => x.id === encuestaId);
+    const opt = s && (s.options || []).find(o => o.id === selected.value);
+    const btn = document.getElementById('encuestaSubmitBtn');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try{
+      await addDoc(collection(db,'survey_responses'), {
+        surveyId: encuestaId, optionId: selected.value, optionText: opt ? opt.text : '', submittedAt: serverTimestamp()
+      });
+      localStorage.setItem('encuesta_voted_' + encuestaId, '1');
+      encuestaSubmitted = true;
+      renderEncuesta();
+    } catch(err){
+      alert('No se pudo enviar tu respuesta. Revisa la conexión e inténtalo otra vez.');
+      console.error(err);
+      btn.disabled = false; btn.textContent = 'Enviar respuesta';
+    }
+    return false;
+  }
+
   function previewCollabLogo(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -4495,6 +4720,8 @@
   function renderAll(){
     renderAlta();
     if(socioModalTarget) renderSocioModal();
+    renderSurveyOptionsList();
+    renderSurveysList();
 
     // Portada de Inicio (texto público + formularios de administrador)
     const heroEyebrowEl = document.getElementById('heroEyebrowText');
@@ -4994,6 +5221,8 @@
     document.getElementById('shopInvitePanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('shopRequestsPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('memberAdminPanel').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('surveysAdminPanel').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('surveysListCard').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('collabAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('passportAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('passportQrPanel').style.display = isAdmin ? 'block' : 'none';
@@ -5025,12 +5254,14 @@
   handleTesoroQrFromUrl();
   handleFidelidadQrFromUrl();
   handleAltaFromUrl();
+  handleEncuestaFromUrl();
 
   // Este script es un módulo (para poder usar "import" de Firebase), así que
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
+    addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

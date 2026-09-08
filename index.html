@@ -899,6 +899,7 @@
   <button onclick="showView('pasaporte', this)">Concurso</button>
   <span class="nav-label" id="navSocioLabel">Vista socio</span>
   <button onclick="showView('cruceros', this)" id="navCruceros">Cruceros</button>
+  <button onclick="showView('noticiassocio', this)" id="navNoticiasSocio">Noticias socios</button>
   <button onclick="showView('ofertas', this)" id="navOfertas">Ofertas socios</button>
   <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
   <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
@@ -1019,6 +1020,16 @@
   </section>
 
   <!-- CRUCEROS -->
+  <!-- NOTICIAS SOCIOS (avisos internos, informales) -->
+  <section class="view" id="view-noticiassocio">
+    <div class="section-title">
+      <h2>📰 Noticias socios</h2>
+      <span class="count mono" id="newsSocioCount"></span>
+    </div>
+    <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Avisos rápidos entre socios — solo los ve la asociación y otros socios, nunca clientes.</p>
+    <div class="news-cards" id="newsListSocio"></div>
+  </section>
+
   <section class="view" id="view-cruceros">
     <div class="section-title">
       <h2>Cruceros en el puerto</h2>
@@ -5472,20 +5483,29 @@
       if(input && document.activeElement !== input) input.value = themeSettings[key.toLowerCase()];
     });
 
-    // Noticias
-    const visibleNews = news.filter(visibleToCurrentUser);
-    document.getElementById('newsCount').textContent = visibleNews.length + ' publicadas';
-    document.getElementById('newsList').innerHTML = visibleNews.length ? visibleNews.map(n => `
+    // Noticias — separadas en dos pestañas: la de clientes (pública) solo
+    // enseña noticias formales; la de socios, solo los avisos internos.
+    const newsCardHTML = (n) => `
       <div class="news-card">
         ${isAdmin ? `<button class="shop-delete" onclick="deleteNews('${n.id}')" title="Eliminar noticia">✕</button>` : ''}
         ${n.image ? `<img src="${n.image}" alt="Foto de ${n.title}" class="photo" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(n.title)}'), '${fmtNewsDate(n.createdAt)}')">` : '<div class="noimg"></div>'}
         <div class="body">
-          <span class="date">${fmtNewsDate(n.createdAt)}${n.audience === 'socios' ? ' · <span style="color:var(--brick);">Solo socios</span>' : ''}</span>
+          <span class="date">${fmtNewsDate(n.createdAt)}${n.authorName ? ' · ' + n.authorName : ''}</span>
           <h4>${n.title}</h4>
           <p>${n.body}</p>
         </div>
-      </div>`).join('') : '<p style="color:var(--navy-deep); font-size:13.5px;">No hay noticias publicadas todavía.</p>';
-    document.getElementById('inicioNewsPreview').innerHTML = visibleNews.slice(0,2).map(n => `
+      </div>`;
+    const newsClient = news.filter(n => !n.audience || n.audience === 'todos');
+    const newsSocio = news.filter(n => n.audience === 'socios');
+    document.getElementById('newsCount').textContent = newsClient.length + ' publicadas';
+    document.getElementById('newsList').innerHTML = newsClient.length ? newsClient.map(newsCardHTML).join('') : '<p style="color:var(--navy-deep); font-size:13.5px;">No hay noticias publicadas todavía.</p>';
+    const newsSocioListEl = document.getElementById('newsListSocio');
+    if(newsSocioListEl){
+      const countEl = document.getElementById('newsSocioCount');
+      if(countEl) countEl.textContent = newsSocio.length + ' publicados';
+      newsSocioListEl.innerHTML = newsSocio.length ? newsSocio.map(newsCardHTML).join('') : '<p style="color:var(--navy-deep); font-size:13.5px;">Todavía no hay ningún aviso para socios.</p>';
+    }
+    document.getElementById('inicioNewsPreview').innerHTML = newsClient.slice(0,2).map(n => `
       <div class="news-item" style="display:flex; gap:10px; align-items:center; cursor:pointer;" onclick="openNewsModal('${n.id}')">
         ${n.image ? `<img src="${n.image}" alt="Foto de ${n.title}" style="width:44px; height:44px; object-fit:cover; border-radius:4px; flex-shrink:0;">` : ''}
         <div>
@@ -5971,6 +5991,7 @@
     document.getElementById('navEdicion').style.display = isAdmin ? '' : 'none';
     document.getElementById('navColaboradores').style.display = isAdmin ? '' : 'none';
     document.getElementById('navCruceros').style.display = isSocio ? '' : 'none';
+    document.getElementById('navNoticiasSocio').style.display = isSocio ? '' : 'none';
     document.getElementById('navOfertas').style.display = isSocio ? '' : 'none';
     document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
     document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';

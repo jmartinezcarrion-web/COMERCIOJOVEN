@@ -1209,7 +1209,11 @@
         <button class="icon-btn" type="button" onclick="openInviteWhatsapp()" style="background:#25D366; color:#fff;">📱 Enviar por WhatsApp</button>
         <button class="icon-btn" type="button" onclick="openInviteMailto()">✉️ Abrir correo</button>
       </div>
-      <p style="margin:16px 0 0; font-size:11.5px; color:var(--navy-deep); overflow-wrap:anywhere;">También hay un enlace genérico de autoservicio, sin invitación previa, por si un comercio quiere darse de alta por su cuenta: <span class="mono" id="genericAltaLink" style="color:#123024;"></span> <button class="icon-btn" type="button" onclick="copyGenericAltaLink()" style="margin-left:6px;">📋 Copiar</button></p>
+      <p style="margin:16px 0 0; font-size:11.5px; color:var(--navy-deep); overflow-wrap:anywhere;">También hay un enlace genérico de autoservicio, sin invitación previa, por si un comercio quiere darse de alta por su cuenta: <span class="mono" id="genericAltaLink" style="color:#123024;"></span></p>
+      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="icon-btn" type="button" onclick="copyGenericAltaLink()">📋 Copiar enlace</button>
+        <button class="icon-btn" type="button" onclick="openGenericAltaWhatsapp()" style="background:#25D366; color:#fff;">📱 Enviar por WhatsApp</button>
+      </div>
     </div>
 
     <div class="admin-panel" id="shopRequestsPanel" style="display:none">
@@ -3886,6 +3890,19 @@
     });
   }
 
+  // Mensaje de bienvenida para el enlace genérico de autoservicio (sin
+  // invitación previa) — incluye la cuota y aclara que es un registro
+  // provisional pendiente de aprobación por el administrador.
+  function buildGenericAltaMessage(url){
+    return `👋 ¡Bienvenido a Comercio Joven Cartagena!\n\nEstamos formando la nueva asociación de comercio joven de Cartagena, abierta a todo tipo de negocios de la ciudad. Déjanos los datos de tu comercio y nos pondremos en contacto contigo para completar tu alta.\n\nLa cuota de socio es de 10 €/mes. Este formulario es un registro provisional: tu comercio no aparecerá publicado hasta que el administrador de la asociación revise y apruebe tu solicitud.\n\n${url}\n\nUn saludo,\nComercio Joven Cartagena`;
+  }
+
+  function openGenericAltaWhatsapp(){
+    const url = window.location.origin + window.location.pathname + '?alta=nueva';
+    const text = encodeURIComponent(buildGenericAltaMessage(url));
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  }
+
   // Construye el mensaje que se envía tanto por WhatsApp como por correo, en
   // un único sitio para no tener el texto duplicado.
   function buildInviteMessage(url){
@@ -4940,7 +4957,7 @@
     openQrScanner, closeQrScanner, printQrSheet,
     submitTesoroIdentity, saveTesoroSettings, markTesoroPrizeClaimed, resetTesoroSeason, saveContestSettings, selectContestTab,
     saveFidelidadSettings, submitFidelidadIdentity, submitFidelidadTicket, cancelFidelidadTicket, declareFidelidadWinner, resetFidelidadSeason, toggleFidelidadCustomerTickets,
-    createShopInvite, copyInviteLink, copyGenericAltaLink, openInviteMailto, openInviteWhatsapp, resendShopInvite, approveShopRequest, rejectShopRequest,
+    createShopInvite, copyInviteLink, copyGenericAltaLink, openGenericAltaWhatsapp, openInviteMailto, openInviteWhatsapp, resendShopInvite, approveShopRequest, rejectShopRequest,
     previewAltaPhoto, previewAltaLogo, submitAltaForm,
     openSocioModal, closeSocioModal, saveSocioModalShop, saveSocioModalLegacy
   });

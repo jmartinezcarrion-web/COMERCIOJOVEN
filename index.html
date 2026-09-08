@@ -1165,6 +1165,8 @@
         <div class="field"><label>Dirección</label><input type="text" id="shopAddress" placeholder="Calle, número, Cartagena"></div>
         <div class="field"><label>Teléfono (opcional)</label><input type="tel" id="shopPhone" placeholder="968 XX XX XX"></div>
         <div class="field"><label>Página web (opcional)</label><input type="text" id="shopWebsite" placeholder="www.minegocio.com"></div>
+        <div class="field"><label>Instagram (opcional)</label><input type="text" id="shopInstagram" placeholder="instagram.com/tucomercio o @tucomercio"></div>
+        <div class="field"><label>Facebook (opcional)</label><input type="text" id="shopFacebook" placeholder="facebook.com/tucomercio"></div>
         <div class="field">
           <label>Visible para</label>
           <select id="shopAudience">
@@ -3860,6 +3862,8 @@
     const address = document.getElementById('shopAddress').value;
     const phone = document.getElementById('shopPhone').value.trim();
     const website = document.getElementById('shopWebsite').value.trim();
+    const instagram = document.getElementById('shopInstagram').value.trim();
+    const facebook = document.getElementById('shopFacebook').value.trim();
     const audience = document.getElementById('shopAudience').value;
     const contactName = document.getElementById('shopContactName').value.trim();
     const contactPhone = document.getElementById('shopContactPhone').value.trim();
@@ -3883,10 +3887,10 @@
         photoUrl = await getDownloadURL(fileRef);
       }
       if(isEditing){
-        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, audience, logo: logoUrl, photo: photoUrl, contactName, contactPhone, quota, memberStatus });
+        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, audience, logo: logoUrl, photo: photoUrl, contactName, contactPhone, quota, memberStatus });
       } else {
         const c1 = shopPalette[shops.length % shopPalette.length];
-        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, contactName, contactPhone, quota, memberStatus });
+        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, contactName, contactPhone, quota, memberStatus });
       }
       pendingLogoFile = null;
       pendingShopPhotoFile = null;
@@ -3909,6 +3913,8 @@
     document.getElementById('shopAddress').value = s.address || '';
     document.getElementById('shopPhone').value = s.phone || '';
     document.getElementById('shopWebsite').value = s.website || '';
+    document.getElementById('shopInstagram').value = s.instagram || '';
+    document.getElementById('shopFacebook').value = s.facebook || '';
     document.getElementById('shopAudience').value = s.audience || 'todos';
     document.getElementById('shopContactName').value = s.contactName || '';
     document.getElementById('shopContactPhone').value = s.contactPhone || '';
@@ -4044,6 +4050,7 @@
       if(isUpdate){
         await updateDoc(doc(db,'shops', r.existingShopId), {
           name: r.name || '', cat: r.cat || '', address: r.address || '', phone: r.phone || '', website: r.website || '',
+          instagram: r.instagram || '', facebook: r.facebook || '',
           logo: r.logo || null, photo: r.photo || null,
           contactName: r.contactName || '', contactEmail: r.contactEmail || '', contactPhone: r.contactPhone || ''
         });
@@ -4051,6 +4058,7 @@
         const c1 = shopPalette[shops.length % shopPalette.length];
         await addDoc(collection(db,'shops'), {
           name: r.name || '', cat: r.cat || '', address: r.address || '', phone: r.phone || '', website: r.website || '',
+          instagram: r.instagram || '', facebook: r.facebook || '',
           audience: 'todos', color1: c1, color2: c1, logo: r.logo || null, photo: r.photo || null,
           contactName: r.contactName || '', contactEmail: r.contactEmail || '', contactPhone: r.contactPhone || '', quota: null, memberStatus: 'pendiente'
         });
@@ -4194,6 +4202,8 @@
           <div class="field"><label>Dirección</label><input type="text" id="altaAddress" placeholder="Calle, número, Cartagena" value="${d.address || ''}"></div>
           <div class="field"><label>Teléfono del comercio (este sí lo verán los clientes)</label><input type="tel" id="altaPhone" placeholder="968 XX XX XX" value="${d.phone || ''}"></div>
           <div class="field"><label>Página web (opcional)</label><input type="text" id="altaWebsite" placeholder="www.minegocio.com" value="${d.website || ''}"></div>
+          <div class="field"><label>Instagram (opcional)</label><input type="text" id="altaInstagram" placeholder="@tucomercio" value="${d.instagram || ''}"></div>
+          <div class="field"><label>Facebook (opcional)</label><input type="text" id="altaFacebook" placeholder="facebook.com/tucomercio" value="${d.facebook || ''}"></div>
           <div class="logo-upload">
             <div class="logo-preview small" id="altaPhotoPreview">${d.photo ? `<img src="${d.photo}" alt="Foto">` : '<span>Sin foto</span>'}</div>
             <div style="flex:1">
@@ -4226,6 +4236,8 @@
     const address = document.getElementById('altaAddress').value.trim();
     const phone = document.getElementById('altaPhone').value.trim();
     const website = document.getElementById('altaWebsite').value.trim();
+    const instagram = document.getElementById('altaInstagram').value.trim();
+    const facebook = document.getElementById('altaFacebook').value.trim();
     const contactName = document.getElementById('altaContactName').value.trim();
     const contactEmail = document.getElementById('altaContactEmail').value.trim();
     const contactPhone = document.getElementById('altaContactPhone').value.trim();
@@ -4244,7 +4256,7 @@
         await uploadBytes(fileRef, pendingAltaLogoFile);
         logoUrl = await getDownloadURL(fileRef);
       }
-      const payload = { name, cat, address, phone, website, contactName, contactEmail, contactPhone, photo: photoUrl, logo: logoUrl, status:'enviada', submittedAt: serverTimestamp() };
+      const payload = { name, cat, address, phone, website, instagram, facebook, contactName, contactEmail, contactPhone, photo: photoUrl, logo: logoUrl, status:'enviada', submittedAt: serverTimestamp() };
       if(altaRequestId && altaRequestId !== 'nueva'){
         await updateDoc(doc(db,'shop_requests', altaRequestId), payload);
       } else {
@@ -4512,6 +4524,8 @@
           <div class="field"><label>Dirección</label><input type="text" id="miComercioAddress" value="${s.address || ''}"></div>
           <div class="field"><label>Teléfono (visible a clientes)</label><input type="tel" id="miComercioPhone" value="${s.phone || ''}"></div>
           <div class="field"><label>Página web</label><input type="text" id="miComercioWebsite" value="${s.website || ''}"></div>
+          <div class="field"><label>Instagram</label><input type="text" id="miComercioInstagram" placeholder="@tucomercio" value="${s.instagram || ''}"></div>
+          <div class="field"><label>Facebook</label><input type="text" id="miComercioFacebook" placeholder="facebook.com/tucomercio" value="${s.facebook || ''}"></div>
           <div class="logo-upload">
             <div class="logo-preview small" id="miComercioPhotoPreview">${s.photo ? `<img src="${s.photo}" alt="Foto">` : '<span>Sin foto</span>'}</div>
             <div style="flex:1">
@@ -4544,6 +4558,8 @@
       const address = document.getElementById('miComercioAddress').value.trim();
       const phone = document.getElementById('miComercioPhone').value.trim();
       const website = document.getElementById('miComercioWebsite').value.trim();
+      const instagram = document.getElementById('miComercioInstagram').value.trim();
+      const facebook = document.getElementById('miComercioFacebook').value.trim();
       let photo = s.photo || null;
       if(pendingMiComercioPhotoFile){
         const fileRef = ref(storage, `shops/${Date.now()}_${pendingMiComercioPhotoFile.name}`);
@@ -4556,7 +4572,7 @@
         await uploadBytes(fileRef, pendingMiComercioLogoFile);
         logo = await getDownloadURL(fileRef);
       }
-      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, photo, logo });
+      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, photo, logo });
       pendingMiComercioPhotoFile = null;
       pendingMiComercioLogoFile = null;
       const status = document.getElementById('miComercioStatus');
@@ -4631,6 +4647,8 @@
           <div class="field"><label>Dirección</label><input type="text" id="actAddress" value="${d.address || ''}"></div>
           <div class="field"><label>Teléfono del comercio (visible a clientes)</label><input type="tel" id="actPhone" value="${d.phone || ''}"></div>
           <div class="field"><label>Página web (opcional)</label><input type="text" id="actWebsite" value="${d.website || ''}"></div>
+          <div class="field"><label>Instagram (opcional)</label><input type="text" id="actInstagram" placeholder="@tucomercio" value="${d.instagram || ''}"></div>
+          <div class="field"><label>Facebook (opcional)</label><input type="text" id="actFacebook" placeholder="facebook.com/tucomercio" value="${d.facebook || ''}"></div>
           <div class="logo-upload">
             <div class="logo-preview small" id="actualizarPhotoPreview">${d.photo ? `<img src="${d.photo}" alt="Foto">` : '<span>Sin foto</span>'}</div>
             <div style="flex:1">
@@ -4663,6 +4681,8 @@
     const address = document.getElementById('actAddress').value.trim();
     const phone = document.getElementById('actPhone').value.trim();
     const website = document.getElementById('actWebsite').value.trim();
+    const instagram = document.getElementById('actInstagram').value.trim();
+    const facebook = document.getElementById('actFacebook').value.trim();
     const contactName = document.getElementById('actContactName').value.trim();
     const contactEmail = document.getElementById('actContactEmail').value.trim();
     const contactPhone = document.getElementById('actContactPhone').value.trim();
@@ -4683,7 +4703,7 @@
       }
       await addDoc(collection(db,'shop_requests'), {
         isUpdate: true, existingShopId: actualizarShopId,
-        name, cat, address, phone, website, contactName, contactEmail, contactPhone,
+        name, cat, address, phone, website, instagram, facebook, contactName, contactEmail, contactPhone,
         photo: photoUrl, logo: logoUrl, status:'enviada', createdAt: serverTimestamp(), submittedAt: serverTimestamp()
       });
       actualizarShopData = { ...actualizarShopData, status:'enviada' };
@@ -4903,6 +4923,8 @@
           <div class="field"><label>Dirección</label><input type="text" id="socioAddress" style="${socioFieldStyle(s.address)}" value="${s.address || ''}"></div>
           <div class="field"><label>Teléfono del comercio (visible a clientes)</label><input type="tel" id="socioPhone" style="${socioFieldStyle(s.phone)}" value="${s.phone || ''}"></div>
           <div class="field"><label>Página web</label><input type="text" id="socioWebsite" style="${socioFieldStyle(s.website)}" value="${s.website || ''}"></div>
+          <div class="field"><label>Instagram</label><input type="text" id="socioInstagram" style="${socioFieldStyle(s.instagram)}" value="${s.instagram || ''}"></div>
+          <div class="field"><label>Facebook</label><input type="text" id="socioFacebook" style="${socioFieldStyle(s.facebook)}" value="${s.facebook || ''}"></div>
           <div style="margin:18px 0 14px; padding-top:14px; border-top:1px dashed var(--brick);">
             <p style="margin:0 0 14px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--brick);">🔒 Datos de socio (privados)</p>
             <div class="field"><label>Persona de contacto</label><input type="text" id="socioContactName" style="${socioFieldStyle(s.contactName)}" value="${s.contactName || ''}"></div>
@@ -4955,6 +4977,8 @@
     const address = document.getElementById('socioAddress').value.trim();
     const phone = document.getElementById('socioPhone').value.trim();
     const website = document.getElementById('socioWebsite').value.trim();
+    const instagram = document.getElementById('socioInstagram').value.trim();
+    const facebook = document.getElementById('socioFacebook').value.trim();
     const contactName = document.getElementById('socioContactName').value.trim();
     const contactEmail = document.getElementById('socioContactEmail').value.trim();
     const contactPhone = document.getElementById('socioContactPhone').value.trim();
@@ -4962,7 +4986,7 @@
     const quota = quotaRaw ? parseFloat(quotaRaw) : null;
     const memberStatus = document.getElementById('socioMemberStatus').value;
     try{
-      await updateDoc(doc(db,'shops', id), { name, cat, address, phone, website, contactName, contactEmail, contactPhone, quota, memberStatus });
+      await updateDoc(doc(db,'shops', id), { name, cat, address, phone, website, instagram, facebook, contactName, contactEmail, contactPhone, quota, memberStatus });
       closeSocioModal();
     } catch(err){
       alert('No se pudo guardar. Revisa la conexión o los permisos de Firestore.');
@@ -5242,6 +5266,8 @@
     document.getElementById('shopsGrid').innerHTML = visibleShops.map((s) => {
       const mapQuery = s.address ? s.address : `${s.name}, Cartagena`;
       const websiteUrl = s.website ? (/^https?:\/\//i.test(s.website) ? s.website : 'https://' + s.website) : null;
+      const instagramUrl = s.instagram ? (/^https?:\/\//i.test(s.instagram) ? s.instagram : 'https://instagram.com/' + s.instagram.replace(/^@/,'').replace(/^instagram\.com\//i,'')) : null;
+      const facebookUrl = s.facebook ? (/^https?:\/\//i.test(s.facebook) ? s.facebook : 'https://' + s.facebook.replace(/^facebook\.com\//i,'facebook.com/')) : null;
       return `
       <div class="shop-card" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))" title="Ver en Google Maps">
         ${isAdmin ? `<button class="shop-delete" onclick="event.stopPropagation(); deleteShop('${s.id}')" title="Eliminar comercio">✕</button>` : ''}
@@ -5254,9 +5280,11 @@
           <h4>${s.name} ${s.audience === 'socios' ? `<span class="badge al-dia" style="font-size:9px; padding:2px 6px; vertical-align:middle;">Socios</span>` : ''}</h4>
           <span class="cat">${s.cat}</span>
           ${isAdmin && (s.contactName || s.contactPhone) ? `<div style="margin:4px 0 0; font-size:11.5px; color:#123024; overflow-wrap:anywhere;">👤 ${s.contactName || 'Sin nombre'}${s.contactPhone ? ' · 📞 ' + s.contactPhone : ''}</div>` : ''}
-          ${s.phone || websiteUrl ? `<div class="shop-links">
+          ${s.phone || websiteUrl || instagramUrl || facebookUrl ? `<div class="shop-links">
             ${s.phone ? `<a href="tel:${s.phone.replace(/\s+/g,'')}" onclick="event.stopPropagation()" title="Llamar">📞 ${s.phone}</a>` : ''}
             ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Visitar web">🌐 Web</a>` : ''}
+            ${instagramUrl ? `<a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Instagram">📷 Instagram</a>` : ''}
+            ${facebookUrl ? `<a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Facebook">📘 Facebook</a>` : ''}
           </div>` : ''}
           <span class="map-hint">📍 Cómo llegar</span>
         </div>

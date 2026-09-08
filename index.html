@@ -5801,6 +5801,7 @@
   // Este script es un módulo (para poder usar "import" de Firebase), así que
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
+    renderAll,
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,

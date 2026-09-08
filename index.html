@@ -1003,6 +1003,11 @@
       </form>
     </div>
 
+    <div class="admin-panel" id="newsProposalsPanel" style="display:none">
+      <span class="tag">📰 Noticias propuestas por socios (administrador)</span>
+      <div id="newsProposalsList"></div>
+    </div>
+
     <div class="news-cards" id="newsList"></div>
   </section>
 
@@ -1505,6 +1510,23 @@
     </div>
     <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Un espacio para hablar entre socios: propuestas, dudas, avisos... Solo lo veis los socios y la asociación.</p>
     <div class="card" style="margin-bottom:20px;">
+      <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">📰 Proponer una noticia para la web</h3>
+      <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">La asociación la revisará y avisará al administrador — no se publica sola, hasta que dé el visto bueno no la verán los clientes.</p>
+      <form onsubmit="return submitNewsProposal(event)">
+        <div class="field"><label>Título</label><input type="text" id="newsProposalTitle" required placeholder="Ej: Nueva carta de otoño en mi restaurante"></div>
+        <div class="field"><label>Texto</label><textarea id="newsProposalBody" required rows="3" placeholder="Cuenta la noticia..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
+        <div class="logo-upload">
+          <div class="logo-preview small" id="newsProposalImagePreview"><span>Sin foto</span></div>
+          <div style="flex:1">
+            <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--navy);">Foto (opcional)</label>
+            <input type="file" accept="image/*" id="newsProposalImageInput" onchange="previewNewsProposalImage(event)">
+          </div>
+        </div>
+        <button class="btn teal" type="submit" id="newsProposalBtn">Enviar para revisión</button>
+        <span id="newsProposalStatus" style="margin-left:10px; font-size:12.5px; color:var(--teal-deep);"></span>
+      </form>
+    </div>
+    <div class="card" style="margin-bottom:20px;">
       <form onsubmit="return publishForumPost(event)">
         <div class="field"><label>Título</label><input type="text" id="forumTitle" required placeholder="Ej: ¿Compramos juntos la decoración de Navidad?"></div>
         <div class="field"><label>Mensaje</label><textarea id="forumBody" required rows="3" placeholder="Cuenta tu propuesta o pregunta..." style="width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif; resize:vertical;"></textarea></div>
@@ -1805,6 +1827,9 @@
   let forumPosts = [];
   let forumComments = [];
   let forumOpenPostId = null; // qué tema tiene el cuadro de comentarios desplegado
+  // ===== Propuestas de noticias de socios =====
+  let newsProposals = [];
+  let pendingNewsProposalImageFile = null;
 
   // ===== Pasaporte de comercios =====
   let passportSettings = { threshold: null, rewardText: '', howItWorks: '', shopIds: [] };
@@ -2025,6 +2050,11 @@
     forumComments = snap.docs.map(d => ({ id:d.id, ...d.data() }));
     renderAll();
   }, err => console.error('Error leyendo comentarios del foro:', err));
+
+  onSnapshot(query(collection(db,'news_requests'), orderBy('createdAt','desc')), snap => {
+    newsProposals = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    renderAll();
+  }, err => console.error('Error leyendo propuestas de noticias:', err));
 
   function previewOfferImage(e){
     const file = e.target.files[0];
@@ -4901,6 +4931,99 @@
     }).join('');
   }
 
+  // ===== Propuestas de noticias de socios (con revisión del administrador) =====
+  function previewNewsProposalImage(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingNewsProposalImageFile = file;
+    document.getElementById('newsProposalImagePreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto">`;
+  }
+
+  async function submitNewsProposal(e){
+    e.preventDefault();
+    if(!auth.currentUser){ alert('Tienes que iniciar sesión como socio para proponer una noticia.'); return false; }
+    const title = document.getElementById('newsProposalTitle').value.trim();
+    const body = document.getElementById('newsProposalBody').value.trim();
+    if(!title || !body) return false;
+    const btn = document.getElementById('newsProposalBtn');
+    const status = document.getElementById('newsProposalStatus');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try{
+      let imageUrl = null;
+      if(pendingNewsProposalImageFile){
+        const fileRef = ref(storage, `news/${Date.now()}_${pendingNewsProposalImageFile.name}`);
+        await uploadBytes(fileRef, pendingNewsProposalImageFile);
+        imageUrl = await getDownloadURL(fileRef);
+      }
+      await addDoc(collection(db,'news_requests'), {
+        title, body, image: imageUrl, authorName: forumAuthorName(), authorUid: auth.currentUser.uid,
+        status: 'pendiente', createdAt: serverTimestamp()
+      });
+      notifyAdminByEmail('Nueva noticia propuesta por un socio', `${forumAuthorName()} ha propuesto la noticia "${title}". Entra en la app, pestaña Noticias, para revisarla y publicarla.`);
+      document.getElementById('newsProposalTitle').value = '';
+      document.getElementById('newsProposalBody').value = '';
+      pendingNewsProposalImageFile = null;
+      document.getElementById('newsProposalImagePreview').innerHTML = '<span>Sin foto</span>';
+      status.textContent = '✓ Enviada, en revisión.';
+      setTimeout(()=> status.textContent = '', 4000);
+    } catch(err){
+      alert('No se pudo enviar la propuesta. Revisa la conexión e inténtalo otra vez.');
+      console.error(err);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enviar para revisión';
+    }
+    return false;
+  }
+
+  async function approveNewsProposal(id){
+    const p = newsProposals.find(x => x.id === id);
+    if(!p) return;
+    if(!confirm(`¿Publicar la noticia "${p.title}" para que la vean los clientes?`)) return;
+    try{
+      await addDoc(collection(db,'news'), { title: p.title, body: p.body, image: p.image || null, audience: 'todos', createdAt: serverTimestamp() });
+      await updateDoc(doc(db,'news_requests', id), { status: 'aprobada' });
+    } catch(err){ alert('No se pudo publicar.'); console.error(err); }
+  }
+
+  async function rejectNewsProposal(id){
+    if(!confirm('¿Rechazar esta propuesta de noticia?')) return;
+    try{ await updateDoc(doc(db,'news_requests', id), { status: 'rechazada' }); }
+    catch(err){ alert('No se pudo rechazar.'); console.error(err); }
+  }
+
+  function renderNewsProposals(){
+    const wrap = document.getElementById('newsProposalsList');
+    if(!wrap) return;
+    const pending = newsProposals.filter(p => p.status === 'pendiente');
+    if(!pending.length){ wrap.innerHTML = '<p class="collab-empty">No hay propuestas de socios esperando revisión.</p>'; return; }
+    wrap.innerHTML = pending.map(p => `
+      <div style="border:1px solid var(--line); border-radius:6px; padding:14px 16px; margin-bottom:14px; background:#fff;">
+        <div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:10px;">
+          ${p.image ? `<img src="${p.image}" alt="Foto" style="width:70px; height:70px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
+          <div style="flex:1; min-width:180px;">
+            <strong style="color:var(--navy); font-size:15px;">${p.title}</strong><br>
+            <span style="font-size:11.5px; color:var(--navy-deep);">Propuesta por ${p.authorName || 'un socio'}</span>
+          </div>
+        </div>
+        <p style="margin:0 0 12px; font-size:13px; color:#123024; white-space:pre-wrap;">${p.body}</p>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="approveNewsProposal('${p.id}')">✓ Publicar</button>
+          <button class="icon-btn danger" onclick="rejectNewsProposal('${p.id}')">✗ Rechazar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // Aviso por correo al administrador cuando un socio propone algo (usa
+  // EmailJS, un servicio externo gratuito para enviar correos desde el
+  // navegador sin necesitar servidor propio — hace falta configurarlo una
+  // vez; hasta entonces esta función no hace nada, solo no falla).
+  function notifyAdminByEmail(subject, message){
+    if(typeof emailjs === 'undefined' || !window.EMAILJS_CONFIGURED) return;
+    emailjs.send(window.EMAILJS_SERVICE_ID, window.EMAILJS_TEMPLATE_ID, {
+      to_email: window.ADMIN_NOTIFY_EMAIL, subject, message
+    }).catch(err => console.error('No se pudo enviar el aviso por correo:', err));
+  }
+
   function previewCollabLogo(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -5235,6 +5358,7 @@
     renderSurveysListSocio();
     renderMiComercio();
     renderForum();
+    renderNewsProposals();
 
     // Portada de Inicio (texto público + formularios de administrador)
     const heroEyebrowEl = document.getElementById('heroEyebrowText');
@@ -5434,13 +5558,21 @@
     const sectorFilterEl = document.getElementById('shopSectorFilter');
     if(sectorFilterEl && document.activeElement !== sectorFilterEl){
       const prevSector = sectorFilterEl.value;
-      const sectores = [...new Set(allVisibleShops.map(s => s.cat).filter(Boolean))].sort((a,b) => a.localeCompare(b, 'es'));
+      const sectorMap = new Map(); // clave normalizada (minúsculas, sin espacios de sobra) -> primera etiqueta vista
+      allVisibleShops.forEach(s => {
+        const raw = (s.cat || '').trim();
+        if(!raw) return;
+        const key = raw.toLowerCase();
+        if(!sectorMap.has(key)) sectorMap.set(key, raw);
+      });
+      const sectores = [...sectorMap.values()].sort((a,b) => a.localeCompare(b, 'es'));
       sectorFilterEl.innerHTML = '<option value="">Todos los sectores</option>' + sectores.map(c => `<option value="${c}">${c}</option>`).join('');
       if(sectores.includes(prevSector)) sectorFilterEl.value = prevSector;
     }
     const selectedSector = sectorFilterEl ? sectorFilterEl.value : '';
+    const selectedSectorKey = selectedSector.trim().toLowerCase();
     const visibleShops = allVisibleShops
-      .filter(s => !selectedSector || s.cat === selectedSector)
+      .filter(s => !selectedSectorKey || (s.cat || '').trim().toLowerCase() === selectedSectorKey)
       .slice()
       .sort((a,b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity:'base' }));
     document.getElementById('shopsCount').textContent = visibleShops.length + ' asociados';
@@ -5762,6 +5894,7 @@
     document.getElementById('shopInvitePanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('shopRequestsPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('memberAdminPanel').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('newsProposalsPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('surveysAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('surveysListCard').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('collabAdminPanel').style.display = isAdmin ? 'block' : 'none';
@@ -5808,6 +5941,7 @@
     previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
+    previewNewsProposalImage, submitNewsProposal, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

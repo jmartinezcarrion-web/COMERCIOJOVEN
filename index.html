@@ -3922,6 +3922,9 @@
     if(!r) return;
     if(!confirm(`¿Publicar "${r.name || '(sin nombre)'}" como comercio asociado? Se creará su ficha en el directorio con estos datos.`)) return;
     try{
+      // Refresca el token de sesión por si se hubiera quedado desactualizado
+      // (evita fallos de permisos si la pestaña llevaba mucho tiempo abierta).
+      if(auth.currentUser) await auth.currentUser.getIdToken(true);
       const c1 = shopPalette[shops.length % shopPalette.length];
       await addDoc(collection(db,'shops'), {
         name: r.name || '', cat: r.cat || '', address: r.address || '', phone: r.phone || '', website: r.website || '',
@@ -3930,7 +3933,18 @@
       });
       await updateDoc(doc(db,'shop_requests', id), { status:'aprobada' });
     } catch(err){
-      alert('No se pudo aprobar la solicitud.\n\nError técnico: ' + (err && err.message ? err.message : err) + '\nTu sesión (UID): ' + (auth.currentUser ? auth.currentUser.uid : 'NO HAY SESIÓN INICIADA'));
+      let tokenInfo = 'sin sesión';
+      try{
+        if(auth.currentUser){
+          const t = await auth.currentUser.getIdTokenResult();
+          tokenInfo = `emitido: ${t.issuedAtTime} · expira: ${t.expirationTime} · proyecto token: ${t.claims.aud || '(?)'}`;
+        }
+      } catch(e2){ tokenInfo = 'no se pudo leer el token: ' + e2.message; }
+      alert('No se pudo aprobar la solicitud.\n\nError técnico: ' + (err && err.message ? err.message : err)
+        + '\nCódigo: ' + (err && err.code ? err.code : '(?)')
+        + '\nTu sesión (UID): ' + (auth.currentUser ? auth.currentUser.uid : 'NO HAY SESIÓN INICIADA')
+        + '\nProyecto en firebaseConfig: ' + fbApp.options.projectId
+        + '\nToken: ' + tokenInfo);
       console.error(err);
     }
   }

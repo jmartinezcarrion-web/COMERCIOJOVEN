@@ -3953,7 +3953,7 @@
       await addDoc(collection(db,'shops'), {
         name: r.name || '', cat: r.cat || '', address: r.address || '', phone: r.phone || '', website: r.website || '',
         audience: 'todos', color1: c1, color2: c1, logo: r.logo || null, photo: r.photo || null,
-        contactName: r.contactName || '', contactPhone: r.contactPhone || '', quota: null, memberStatus: 'pendiente'
+        contactName: r.contactName || '', contactEmail: r.contactEmail || '', contactPhone: r.contactPhone || '', quota: null, memberStatus: 'pendiente'
       });
       await updateDoc(doc(db,'shop_requests', id), { status:'aprobada' });
     } catch(err){
@@ -3999,7 +3999,7 @@
             <span style="font-size:12.5px; color:#123024;">${r.phone ? '📞 ' + r.phone : ''}${r.website ? ' · 🌐 ' + r.website : ''}</span>
           </div>
         </div>
-        <div style="font-size:12.5px; color:#123024; margin-bottom:12px;">👤 Contacto: ${r.contactName || '(sin nombre)'}${r.contactPhone ? ' · 📞 ' + r.contactPhone : ''}${r.email ? ' · ✉️ ' + r.email : ''}</div>
+        <div style="font-size:12.5px; color:#123024; margin-bottom:12px;">👤 Contacto: ${r.contactName || '(sin nombre)'}${r.contactPhone ? ' · 📞 ' + r.contactPhone : ''}${(r.contactEmail || r.email) ? ' · ✉️ ' + (r.contactEmail || r.email) : ''}</div>
         <div class="row-actions">
           <button class="icon-btn" onclick="approveShopRequest('${r.id}')">✓ Aprobar y crear ficha</button>
           <button class="icon-btn danger" onclick="rejectShopRequest('${r.id}')">✗ Rechazar</button>
@@ -4106,6 +4106,7 @@
           <div style="margin:20px 0 16px; padding-top:16px; border-top:1px dashed var(--brick);">
             <p style="margin:0 0 14px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--brick);">🔒 Persona de contacto (uso interno de la asociación — no se publica a los clientes)</p>
             <div class="field"><label>Tu nombre</label><input type="text" id="altaContactName" placeholder="Ej: Ana Pérez" value="${d.contactName || ''}"></div>
+            <div class="field"><label>Tu correo (para tu acceso a la app cuando te demos de alta)</label><input type="email" id="altaContactEmail" placeholder="tucorreo@ejemplo.com" value="${d.contactEmail || ''}"></div>
             <div class="field"><label>Tu teléfono de contacto</label><input type="tel" id="altaContactPhone" placeholder="6XX XXX XXX" value="${d.contactPhone || ''}"></div>
           </div>
           <button class="btn teal" type="submit" id="altaSubmitBtn">Enviar solicitud</button>
@@ -4121,6 +4122,7 @@
     const phone = document.getElementById('altaPhone').value.trim();
     const website = document.getElementById('altaWebsite').value.trim();
     const contactName = document.getElementById('altaContactName').value.trim();
+    const contactEmail = document.getElementById('altaContactEmail').value.trim();
     const contactPhone = document.getElementById('altaContactPhone').value.trim();
     const btn = document.getElementById('altaSubmitBtn');
     btn.disabled = true; btn.textContent = 'Enviando...';
@@ -4137,7 +4139,7 @@
         await uploadBytes(fileRef, pendingAltaLogoFile);
         logoUrl = await getDownloadURL(fileRef);
       }
-      const payload = { name, cat, address, phone, website, contactName, contactPhone, photo: photoUrl, logo: logoUrl, status:'enviada', submittedAt: serverTimestamp() };
+      const payload = { name, cat, address, phone, website, contactName, contactEmail, contactPhone, photo: photoUrl, logo: logoUrl, status:'enviada', submittedAt: serverTimestamp() };
       if(altaRequestId && altaRequestId !== 'nueva'){
         await updateDoc(doc(db,'shop_requests', altaRequestId), payload);
       } else {
@@ -4247,11 +4249,11 @@
   // crear la cuenta de otra persona. Después le manda un correo de
   // "restablecer contraseña" para que sea el propio socio quien elija su
   // contraseña — nosotros nunca llegamos a verla.
-  async function createMemberAccess(){
-    const email = document.getElementById('memEmail').value.trim();
+  // Lógica compartida para crear (o reactivar) el acceso de un socio: la
+  // usan tanto el panel "Socios y pagos" como el modal de ficha de socio.
+  async function sendMemberAccessEmail(email, onStatus){
     if(!email){ alert('Escribe primero el correo del socio y guarda los datos.'); return; }
-    const status = document.getElementById('memberSettingsStatus');
-    status.textContent = 'Creando acceso...';
+    if(onStatus) onStatus('Creando acceso...');
     let secondaryApp, secondaryAuth;
     try{
       secondaryApp = initializeApp(firebaseConfig, 'member-access-' + Date.now());
@@ -4266,14 +4268,25 @@
       }
       await sendPasswordResetEmail(secondaryAuth, email);
       await signOut(secondaryAuth);
-      status.textContent = '✓ Correo de acceso enviado a ' + email;
-      setTimeout(()=> status.textContent = '', 4000);
+      if(onStatus){ onStatus('✓ Correo de acceso enviado a ' + email); setTimeout(()=> onStatus(''), 4000); }
+      else alert('✓ Correo de acceso enviado a ' + email);
     } catch(err){
       alert('No se pudo crear el acceso.\n\nError: ' + (err && err.message ? err.message : err));
       console.error(err);
     } finally {
       try{ if(secondaryApp) await deleteApp(secondaryApp); } catch(e){}
     }
+  }
+
+  function createMemberAccess(){
+    const email = document.getElementById('memEmail').value.trim();
+    const status = document.getElementById('memberSettingsStatus');
+    sendMemberAccessEmail(email, (t) => status.textContent = t);
+  }
+
+  function createMemberAccessFromModal(){
+    const email = document.getElementById('socioContactEmail').value.trim();
+    sendMemberAccessEmail(email);
   }
 
   // Cambia el estado de cuota de un socio vinculado a un comercio (se guarda
@@ -4336,6 +4349,7 @@
           <div style="margin:18px 0 14px; padding-top:14px; border-top:1px dashed var(--brick);">
             <p style="margin:0 0 14px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--brick);">🔒 Datos de socio (privados)</p>
             <div class="field"><label>Persona de contacto</label><input type="text" id="socioContactName" style="${socioFieldStyle(s.contactName)}" value="${s.contactName || ''}"></div>
+            <div class="field"><label>Correo del socio (para su acceso a la app)</label><input type="email" id="socioContactEmail" style="${socioFieldStyle(s.contactEmail)}" value="${s.contactEmail || ''}"></div>
             <div class="field"><label>Teléfono de contacto</label><input type="tel" id="socioContactPhone" style="${socioFieldStyle(s.contactPhone)}" value="${s.contactPhone || ''}"></div>
             <div class="field"><label>Cuota trimestral (€)</label><input type="number" id="socioQuota" style="${socioFieldStyle(s.quota)}" value="${s.quota != null ? s.quota : ''}"></div>
             <div class="field"><label>Estado de la cuota</label>
@@ -4347,6 +4361,7 @@
           </div>
           <div class="row-actions" style="margin-top:6px;">
             <button class="btn teal" type="submit">Guardar cambios</button>
+            <button class="icon-btn" type="button" onclick="createMemberAccessFromModal()">🔒 Crear/enviar acceso</button>
             <button class="icon-btn" type="button" onclick="closeSocioModal()">Cancelar</button>
           </div>
         </form>`;
@@ -4384,12 +4399,13 @@
     const phone = document.getElementById('socioPhone').value.trim();
     const website = document.getElementById('socioWebsite').value.trim();
     const contactName = document.getElementById('socioContactName').value.trim();
+    const contactEmail = document.getElementById('socioContactEmail').value.trim();
     const contactPhone = document.getElementById('socioContactPhone').value.trim();
     const quotaRaw = document.getElementById('socioQuota').value;
     const quota = quotaRaw ? parseFloat(quotaRaw) : null;
     const memberStatus = document.getElementById('socioMemberStatus').value;
     try{
-      await updateDoc(doc(db,'shops', id), { name, cat, address, phone, website, contactName, contactPhone, quota, memberStatus });
+      await updateDoc(doc(db,'shops', id), { name, cat, address, phone, website, contactName, contactEmail, contactPhone, quota, memberStatus });
       closeSocioModal();
     } catch(err){
       alert('No se pudo guardar. Revisa la conexión o los permisos de Firestore.');
@@ -4994,7 +5010,7 @@
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
-    previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, toggleShopMemberStatus, removeShopMembership,
+    previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
     submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,

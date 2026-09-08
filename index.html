@@ -889,11 +889,11 @@
   <span class="nav-label">Vista clientes</span>
   <button class="active" onclick="showView('inicio', this)">Inicio</button>
   <button onclick="showView('noticias', this)">Noticias</button>
-  <button onclick="showView('cruceros', this)">Cruceros</button>
   <button onclick="showView('actividades', this)">Actividades</button>
   <button onclick="showView('comercios', this)">Comercios</button>
   <button onclick="showView('pasaporte', this)">Concurso</button>
   <span class="nav-label" id="navSocioLabel">Vista socio</span>
+  <button onclick="showView('cruceros', this)" id="navCruceros">Cruceros</button>
   <button onclick="showView('ofertas', this)" id="navOfertas">Ofertas socios</button>
   <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
   <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
@@ -5717,6 +5717,7 @@
     document.getElementById('navGestion').style.display = isAdmin ? '' : 'none';
     document.getElementById('navEdicion').style.display = isAdmin ? '' : 'none';
     document.getElementById('navColaboradores').style.display = isAdmin ? '' : 'none';
+    document.getElementById('navCruceros').style.display = isSocio ? '' : 'none';
     document.getElementById('navOfertas').style.display = isSocio ? '' : 'none';
     document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
     document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';

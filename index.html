@@ -4322,7 +4322,8 @@
   function renderSurveyOptionsList(){
     const wrap = document.getElementById('surveyOptionsList');
     if(!wrap) return;
-    if(wrap.contains(document.activeElement)) return;
+    const active = document.activeElement;
+    if(wrap.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
     wrap.innerHTML = pendingSurveyOptions.map((val, i) => `
       <div style="display:flex; gap:8px; margin-bottom:8px;">
         <input type="text" value="${val.replace(/"/g,'&quot;')}" placeholder="Opción ${i+1}" oninput="updateSurveyOption(${i}, this.value)" style="flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif;">
@@ -4842,8 +4843,11 @@
     if(!wrap) return;
     if(!isSocio && !isAdmin){ wrap.innerHTML = ''; return; }
     if(!forumPosts.length){ wrap.innerHTML = '<p style="color:var(--navy-deep); font-size:13px;">Todavía no hay ningún tema. ¡Sé el primero en publicar!</p>'; return; }
-    // No reconstruir mientras alguien está escribiendo un comentario, para no perder lo escrito.
-    if(wrap.contains(document.activeElement)) return;
+    // No reconstruir mientras alguien está escribiendo un comentario, para no perder lo escrito
+    // (solo si el foco está en un campo de texto, no en un botón — si no, pulsar el botón de
+    // "comentarios" quedaba sin efecto porque el propio botón, al recibir el foco, disparaba esta guarda).
+    const active = document.activeElement;
+    if(wrap.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
     wrap.innerHTML = forumPosts.map(p => {
       const comments = forumComments.filter(c => c.postId === p.id);
       const open = forumOpenPostId === p.id;

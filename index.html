@@ -1567,8 +1567,9 @@
     <div class="ad-cta">Pide tu estudio gratis →</div>
   </a>
 
-  <div style="text-align:center; padding:18px 0 6px;">
-    <button id="adminAccessBtn" onclick="toggleAdminAccess()" style="background:none; border:none; color:var(--navy-deep); font-size:11px; cursor:pointer; padding:8px; text-decoration:underline; text-decoration-color:transparent;">Acceso administrador</button>
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px 6px; max-width:520px; margin:0 auto;">
+    <button id="socioAccessBtn" onclick="toggleAdminAccess()" style="background:none; border:none; color:var(--navy-deep); font-size:11px; cursor:pointer; padding:8px; text-decoration:underline; text-decoration-color:transparent;">🔒 Acceso socios</button>
+    <button id="adminAccessBtn" onclick="toggleAdminAccess()" style="background:none; border:none; color:var(--navy-deep); font-size:11px; cursor:pointer; padding:8px; text-decoration:underline; text-decoration-color:transparent;">🔒 Acceso administrador</button>
   </div>
 
 </main>
@@ -4938,10 +4939,16 @@
     }
 
     const adminBtn = document.getElementById('adminAccessBtn');
-    if(adminBtn){
-      if(isAdminSession) adminBtn.textContent = '🔓 Salir de administrador';
-      else if(isSocioSession) adminBtn.textContent = '🔓 Salir (sesión de socio)';
-      else adminBtn.textContent = '🔒 Acceso socios / administrador';
+    const socioBtn = document.getElementById('socioAccessBtn');
+    if(isAdminSession){
+      if(adminBtn){ adminBtn.style.display = ''; adminBtn.textContent = '🔓 Salir de administrador'; }
+      if(socioBtn) socioBtn.style.display = 'none';
+    } else if(isSocioSession){
+      if(socioBtn){ socioBtn.style.display = ''; socioBtn.textContent = '🔓 Salir (sesión de socio)'; }
+      if(adminBtn) adminBtn.style.display = 'none';
+    } else {
+      if(adminBtn){ adminBtn.style.display = ''; adminBtn.textContent = '🔒 Acceso administrador'; }
+      if(socioBtn){ socioBtn.style.display = ''; socioBtn.textContent = '🔒 Acceso socios'; }
     }
 
     const banner = document.getElementById('modeBanner');

@@ -904,6 +904,7 @@
   <button onclick="showView('micomercio', this)" id="navMiComercio">Mi comercio</button>
   <button onclick="showView('foro', this)" id="navForo">Foro de socios</button>
   <button onclick="showView('subirnoticia', this)" id="navSubirNoticia">Subir noticia</button>
+  <button onclick="showView('comosehace', this)" id="navComoSeHace">❓ Cómo se hace</button>
   <button onclick="showView('socio', this)">Hazte socio</button>
   <button onclick="showView('colaboradores', this)" id="navColaboradores">Colaboradores</button>
   <button onclick="showView('edicion', this)" id="navEdicion">Edición</button>
@@ -1561,6 +1562,44 @@
         <button class="icon-btn" type="button" onclick="cancelNewsProposalType()" style="margin-left:8px;">Cambiar tipo</button>
         <span id="newsProposalStatus" style="margin-left:10px; font-size:12.5px; color:var(--teal-deep);"></span>
       </form>
+    </div>
+  </section>
+
+  <!-- CÓMO SE HACE (ayuda para socios) -->
+  <section class="view" id="view-comosehace">
+    <div class="section-title">
+      <h2>❓ Cómo se hace</h2>
+    </div>
+    <p style="margin:0 0 20px; font-size:13.5px; color:var(--navy-deep);">Guía rápida de todo lo que puedes hacer como socio.</p>
+
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">🎁 Ver ofertas entre socios</h3>
+      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Ofertas socios"</strong> puedes ver descuentos y ventajas que otros comercios ofrecen a los socios de la asociación, y añadir los tuyos propios con el formulario de esa misma pestaña.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">📊 Votar en encuestas</h3>
+      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Encuestas"</strong> ves los resultados de las encuestas que la asociación va publicando. Cuando haya una abierta, te llegará un enlace directo por WhatsApp o correo para votar — no hace falta entrar aquí para eso, solo para ver cómo ha ido.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">🏪 Actualizar los datos de tu comercio</h3>
+      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Mi comercio"</strong> puedes cambiar el nombre, dirección, teléfono público, web, Instagram, Facebook, foto y logo de tu ficha en el directorio, cuando quieras. Pulsa "Guardar cambios" al terminar.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">💬 Hablar con otros socios</h3>
+      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Foro de socios"</strong> puedes publicar un tema (propuesta, duda, aviso...) y comentar en los de otros. Solo lo veis los socios y la asociación, nadie más.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">📰 Subir una noticia</h3>
+      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Subir noticia"</strong> eliges entre dos tipos: <strong>"Noticia para la web"</strong> (la revisa la asociación antes de publicarla y la ven todos los clientes) o <strong>"Noticia para los socios"</strong> (se publica al momento, sin revisión, y solo la ven otros socios — ideal para avisos rápidos del día a día).</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">🔒 Tu acceso</h3>
+      <p style="margin:0; font-size:13.5px; color:#123024;">Entras con el correo y la contraseña que elegiste al crear tu acceso. Si alguna vez la olvidas, dile a la asociación que te reenvíe el enlace de acceso para poner una nueva.</p>
     </div>
   </section>
 
@@ -5937,6 +5976,8 @@
     document.getElementById('navMiComercio').style.display = isSocio ? '' : 'none';
     document.getElementById('navForo').style.display = isSocio ? '' : 'none';
     document.getElementById('navSubirNoticia').style.display = isSocio ? '' : 'none';
+    const comoSeHaceEl = document.getElementById('navComoSeHace');
+    if(comoSeHaceEl) comoSeHaceEl.style.display = isSocio ? '' : 'none';
     const socioLabelEl = document.getElementById('navSocioLabel');
     if(socioLabelEl) socioLabelEl.style.display = isSocio ? '' : 'none';
 

@@ -887,6 +887,7 @@
   <button onclick="showView('pasaporte', this)">Concurso</button>
   <button onclick="showView('edicion', this)" id="navEdicion">Edición</button>
   <button onclick="showView('ofertas', this)" id="navOfertas">Ofertas socios</button>
+  <button onclick="showView('encuestasSocio', this)" id="navEncuestasSocio">Encuestas</button>
   <button onclick="showView('socio', this)">Hazte socio</button>
   <button onclick="showView('gestion', this)" id="navGestion">Socios y pagos</button>
 </div>
@@ -1461,6 +1462,15 @@
     <div class="activities" id="offersList"></div>
   </section>
 
+  <!-- ENCUESTAS (resultados, solo socio y administración) -->
+  <section class="view" id="view-encuestasSocio">
+    <div class="section-title">
+      <h2>📊 Encuestas</h2>
+    </div>
+    <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Resultados de las encuestas que la asociación ha hecho a los socios.</p>
+    <div id="surveysListSocio"></div>
+  </section>
+
   <!-- HAZTE SOCIO -->
   <section class="view" id="view-socio">
     <div class="section-title"><h2>Ficha de futuro socio</h2></div>
@@ -1713,7 +1723,6 @@
   // no requiere ser socio ni administrador para abrirlo.
   let altaRequestId = null;
   let altaRequestData = null;
-  let altaSubmitted = false;
   let pendingAltaPhotoFile = null;
   let pendingAltaLogoFile = null;
   let lastInviteUrl = null;
@@ -4114,22 +4123,26 @@
       area.innerHTML = '<p style="color:var(--navy-deep);">Esta solicitud ya fue revisada y el comercio está dado de alta. Si necesitas cambiar algo, contacta con la asociación.</p>';
       return;
     }
-    if(altaSubmitted){
-      area.innerHTML = `
-        <div class="passport-complete">
-          <h3>✓ ¡Solicitud enviada!</h3>
-          <p>Gracias, hemos recibido tus datos. La asociación los revisará y tu comercio aparecerá en la app en cuanto se apruebe.</p>
-        </div>`;
-      return;
-    }
 
     const d = altaRequestData || {};
     // Si el formulario ya está pintado y el usuario tiene el foco dentro
     // (escribiendo), no lo reconstruimos para no perderle lo escrito.
     if(area.contains(document.activeElement) && area.querySelector('form')) return;
 
+    const personalUrl = window.location.origin + window.location.pathname + '?alta=' + altaRequestId;
+    const savedBanner = (d.status === 'enviada') ? `
+      <div style="margin:0 0 20px; padding:14px 16px; background:rgba(37,211,102,0.14); border:1px solid #25D366; border-radius:8px;">
+        <p style="margin:0 0 6px; font-size:13.5px; font-weight:700; color:var(--navy-deep);">✓ Hemos guardado tus datos — están pendientes de revisión.</p>
+        <p style="margin:0 0 10px; font-size:12.5px; color:#123024;">Si te falta algo, puedes completarlo o corregirlo ahora mismo en este mismo formulario. Guarda este enlace para volver cuando quieras:</p>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <span class="mono" style="font-size:11px; color:#123024; overflow-wrap:anywhere;">${personalUrl}</span>
+          <button class="icon-btn" type="button" onclick="copyGenericAltaLinkCustom('${personalUrl}')">📋 Copiar</button>
+        </div>
+      </div>` : '';
+
     area.innerHTML = `
       <div class="card">
+        ${savedBanner}
         <div style="margin:0 0 20px; padding:16px 18px; background:rgba(255,255,255,0.55); border-radius:8px; border:1px solid var(--line);">
           <p style="margin:0 0 10px; font-size:15px; font-weight:700; color:var(--navy-deep);">👋 ¡Bienvenido a Comercio Joven Cartagena!</p>
           <p style="margin:0 0 10px; font-size:13.5px; color:#123024;">Estamos formando la nueva asociación de comercio joven de Cartagena, abierta a todo tipo de negocios de la ciudad. Déjanos los datos de tu comercio y nos pondremos en contacto contigo para completar tu alta.</p>
@@ -4161,7 +4174,7 @@
             <div class="field"><label>Tu correo (para tu acceso a la app cuando te demos de alta)</label><input type="email" id="altaContactEmail" placeholder="tucorreo@ejemplo.com" value="${d.contactEmail || ''}"></div>
             <div class="field"><label>Tu teléfono de contacto</label><input type="tel" id="altaContactPhone" placeholder="6XX XXX XXX" value="${d.contactPhone || ''}"></div>
           </div>
-          <button class="btn teal" type="submit" id="altaSubmitBtn">Enviar solicitud</button>
+          <button class="btn teal" type="submit" id="altaSubmitBtn">${d.status === 'enviada' ? 'Guardar cambios' : 'Enviar solicitud'}</button>
         </form>
       </div>`;
   }
@@ -4177,7 +4190,7 @@
     const contactEmail = document.getElementById('altaContactEmail').value.trim();
     const contactPhone = document.getElementById('altaContactPhone').value.trim();
     const btn = document.getElementById('altaSubmitBtn');
-    btn.disabled = true; btn.textContent = 'Enviando...';
+    btn.disabled = true; btn.textContent = 'Guardando...';
     try{
       let photoUrl = (altaRequestData && altaRequestData.photo) || null;
       if(pendingAltaPhotoFile){
@@ -4196,16 +4209,30 @@
         await updateDoc(doc(db,'shop_requests', altaRequestId), payload);
       } else {
         payload.createdAt = serverTimestamp();
-        await addDoc(collection(db,'shop_requests'), payload);
+        const newDoc = await addDoc(collection(db,'shop_requests'), payload);
+        altaRequestId = newDoc.id;
+        // A partir de ahora este enlace (con el ID real) es el "personal" del
+        // comercio: si lo guarda y vuelve más tarde, encontrará sus datos ya
+        // rellenados y podrá completarlos, en vez de empezar de cero.
+        const newUrl = window.location.origin + window.location.pathname + '?alta=' + newDoc.id;
+        window.history.replaceState(null, '', newUrl);
       }
-      altaSubmitted = true;
+      // Actualizamos los datos en memoria con lo que se acaba de guardar, para
+      // que el formulario siga mostrándose (editable) en vez de bloquearse.
+      altaRequestData = { ...(altaRequestData || {}), ...payload };
       renderAlta();
     } catch(err){
-      alert('No se pudo enviar la solicitud. Revisa la conexión e inténtalo otra vez.');
+      alert('No se pudo guardar. Revisa la conexión e inténtalo otra vez.');
       console.error(err);
       btn.disabled = false; btn.textContent = 'Enviar solicitud';
     }
     return false;
+  }
+
+  function copyGenericAltaLinkCustom(url){
+    navigator.clipboard?.writeText(url).then(() => alert('Enlace copiado.')).catch(() => {
+      alert('No se pudo copiar automáticamente. El enlace es:\n' + url);
+    });
   }
 
   // ===== Encuestas a socios (administrador) =====
@@ -4278,27 +4305,30 @@
     catch(err){ alert('No se pudo eliminar.'); console.error(err); }
   }
 
+  function renderSurveyResultsBars(s){
+    const responses = surveyResponses.filter(r => r.surveyId === s.id);
+    const total = responses.length;
+    return (s.options || []).map(opt => {
+      const count = responses.filter(r => r.optionId === opt.id).length;
+      const pct = total ? Math.round((count / total) * 100) : 0;
+      return `
+        <div style="margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; font-size:12.5px; color:#123024; margin-bottom:3px;">
+            <span>${opt.text}</span><span>${count} (${pct}%)</span>
+          </div>
+          <div style="background:var(--sand-2); border-radius:4px; height:8px; overflow:hidden;">
+            <div style="background:var(--teal); height:100%; width:${pct}%;"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
   function renderSurveysList(){
     const wrap = document.getElementById('surveysList');
     if(!wrap) return;
     if(!surveys.length){ wrap.innerHTML = '<p style="color:var(--navy-deep); font-size:13px;">Todavía no has publicado ninguna encuesta.</p>'; return; }
     wrap.innerHTML = surveys.map(s => {
-      const responses = surveyResponses.filter(r => r.surveyId === s.id);
-      const total = responses.length;
-      const url = window.location.origin + window.location.pathname + '?encuesta=' + s.id;
-      const bars = (s.options || []).map(opt => {
-        const count = responses.filter(r => r.optionId === opt.id).length;
-        const pct = total ? Math.round((count / total) * 100) : 0;
-        return `
-          <div style="margin-bottom:8px;">
-            <div style="display:flex; justify-content:space-between; font-size:12.5px; color:#123024; margin-bottom:3px;">
-              <span>${opt.text}</span><span>${count} (${pct}%)</span>
-            </div>
-            <div style="background:var(--sand-2); border-radius:4px; height:8px; overflow:hidden;">
-              <div style="background:var(--teal); height:100%; width:${pct}%;"></div>
-            </div>
-          </div>`;
-      }).join('');
+      const total = surveyResponses.filter(r => r.surveyId === s.id).length;
       return `
         <div style="border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; background:#fff;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
@@ -4306,11 +4336,28 @@
             <button class="icon-btn" type="button" onclick="deleteSurvey('${s.id}')" title="Eliminar encuesta" style="flex-shrink:0;">🗑️</button>
           </div>
           <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'}</p>
-          ${bars}
+          ${renderSurveyResultsBars(s)}
           <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
             <button class="icon-btn" type="button" onclick="copySurveyLink('${s.id}')">📋 Copiar enlace</button>
             <button class="icon-btn" type="button" onclick="openSurveyWhatsapp('${s.id}')" style="background:#25D366; color:#fff;">📱 Enviar por WhatsApp</button>
           </div>
+        </div>`;
+    }).join('');
+  }
+
+  // Misma información que ve el administrador, pero solo lectura — sin
+  // botones de borrar ni compartir — para la pestaña "Encuestas" de socios.
+  function renderSurveysListSocio(){
+    const wrap = document.getElementById('surveysListSocio');
+    if(!wrap) return;
+    if(!surveys.length){ wrap.innerHTML = '<p style="color:var(--navy-deep); font-size:13px;">Todavía no hay ninguna encuesta publicada.</p>'; return; }
+    wrap.innerHTML = surveys.map(s => {
+      const total = surveyResponses.filter(r => r.surveyId === s.id).length;
+      return `
+        <div style="border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; background:#fff;">
+          <h4 style="margin:0 0 4px; font-size:14.5px;">${s.title}</h4>
+          <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'}</p>
+          ${renderSurveyResultsBars(s)}
         </div>`;
     }).join('');
   }
@@ -4712,6 +4759,7 @@
     if(socioModalTarget) renderSocioModal();
     renderSurveyOptionsList();
     renderSurveysList();
+    renderSurveysListSocio();
 
     // Portada de Inicio (texto público + formularios de administrador)
     const heroEyebrowEl = document.getElementById('heroEyebrowText');
@@ -5202,6 +5250,7 @@
     document.getElementById('navEdicion').style.display = isAdmin ? '' : 'none';
     document.getElementById('navColaboradores').style.display = isAdmin ? '' : 'none';
     document.getElementById('navOfertas').style.display = isSocio ? '' : 'none';
+    document.getElementById('navEncuestasSocio').style.display = isSocio ? '' : 'none';
 
     document.getElementById('newsAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('cruiseAdminPanel').style.display = isAdmin ? 'block' : 'none';
@@ -5263,7 +5312,7 @@
     submitTesoroIdentity, saveTesoroSettings, markTesoroPrizeClaimed, resetTesoroSeason, saveContestSettings, selectContestTab,
     saveFidelidadSettings, submitFidelidadIdentity, submitFidelidadTicket, cancelFidelidadTicket, declareFidelidadWinner, resetFidelidadSeason, toggleFidelidadCustomerTickets,
     createShopInvite, copyInviteLink, copyGenericAltaLink, openGenericAltaWhatsapp, openInviteMailto, openInviteWhatsapp, resendShopInvite, approveShopRequest, rejectShopRequest,
-    previewAltaPhoto, previewAltaLogo, submitAltaForm,
+    previewAltaPhoto, previewAltaLogo, submitAltaForm, copyGenericAltaLinkCustom,
     openSocioModal, closeSocioModal, saveSocioModalShop, saveSocioModalLegacy
   });
 </script>

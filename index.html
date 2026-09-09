@@ -424,7 +424,12 @@
   .activity-badge-past{ display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; background:#e5e7eb; color:#4b5563; padding:2px 7px; border-radius:4px; margin-left:6px; vertical-align:middle; }
 
   /* ===== Noticias (formato foto + texto centrado) ===== */
-  .news-cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:20px; }
+  .news-cards{ display:grid; grid-template-columns:repeat(2, 1fr); gap:20px; }
+  .news-cards > *:last-child:nth-child(odd){ grid-column:1 / -1; }
+  @media (max-width: 640px){
+    .news-cards{ grid-template-columns:1fr; }
+    .news-cards > *:last-child:nth-child(odd){ grid-column:auto; }
+  }
   .news-card{
     position:relative;
     background:var(--paper); border:1px solid var(--line); border-radius:16px; overflow:hidden;

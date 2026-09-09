@@ -42,16 +42,18 @@
     -webkit-font-smoothing:antialiased;
     position:relative;
   }
-  /* Fondo fijo de la app: mientras no haya una foto propia de la asociación,
-     usamos un degradado con la paleta de la marca en vez de una imagen — es
-     fácil de sustituir luego por background-image:url('hero.jpg') sin tocar
-     nada más. Usamos un ::before de posición fija en vez de
+  /* Fondo fijo de la app: si el administrador ha subido una foto, se usa esa
+     (variable --bg-photo, puesta por JS); si no, se usa el degradado con la
+     paleta de la marca. Usamos un ::before de posición fija en vez de
      background-attachment:fixed porque en iPhone/Safari ese último no
      funciona bien. */
   body::before{
     content:"";
     position:fixed; inset:0; z-index:-2;
-    background:linear-gradient(135deg, #1B4332 0%, #2D5A46 45%, #FF8C61 130%);
+    background-image: var(--bg-photo, none), linear-gradient(135deg, #1B4332 0%, #2D5A46 45%, #FF8C61 130%);
+    background-size: cover, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
   }
   body::after{
     content:"";
@@ -954,6 +956,21 @@
       </form>
     </div>
 
+    <div class="admin-panel" id="bgAdminPanel" style="display:none">
+      <span class="tag">⚙ Fondo de la app (administrador)</span>
+      <p style="margin:0 0 14px; font-size:13px; color:var(--navy-deep);">Sube una foto para usarla de fondo en toda la app (se ve detrás de las páginas, con un degradado encima para que se siga leyendo bien). Se aplica al instante para todo el mundo. Si no subes ninguna, se usa el degradado de color por defecto.</p>
+      <form onsubmit="return false;">
+        <div class="field">
+          <label>Foto de fondo</label>
+          <input type="file" id="bgPhotoInput" accept="image/*" onchange="previewBgPhoto(event)">
+          <div id="bgPhotoPreview" style="margin-top:10px; max-width:220px;"></div>
+        </div>
+        <button class="btn" type="button" onclick="saveBackgroundSettings()">Guardar fondo</button>
+        <button class="icon-btn" type="button" onclick="resetBackgroundSettings()" style="margin-left:8px;">↺ Quitar foto (usar degradado)</button>
+        <span id="bgSettingsStatus" style="margin-left:12px; font-size:12.5px; color:var(--teal-deep);"></span>
+      </form>
+    </div>
+
     <div class="hero-photo-wrap">
       <div class="hero-glass">
         <span class="eyebrow" id="heroEyebrowText">Comercio Joven · Cartagena</span>
@@ -979,7 +996,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.4 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.5 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -2040,6 +2057,8 @@
   const DEFAULT_THEME = { navy:'#1B4332', gold:'#D4A373', brick:'#C2452F', teal:'#FF8C61', sand:'#FBF7F0' };
   let heroSettings = { ...DEFAULT_HERO };
   let themeSettings = { ...DEFAULT_THEME };
+  let bgSettings = { url: null };
+  let pendingBgPhotoFile = null;
 
   function normalizePhone(phone){
     return (phone || '').replace(/\D/g, '');
@@ -2466,6 +2485,20 @@
     renderAll();
   }, err => console.error('Error leyendo los colores:', err));
 
+  onSnapshot(doc(db,'settings','background'), snap => {
+    bgSettings = snap.exists() ? snap.data() : { url: null };
+    applyBackground();
+  }, err => console.error('Error leyendo el fondo:', err));
+
+  function applyBackground(){
+    const root = document.documentElement;
+    if(bgSettings && bgSettings.url){
+      root.style.setProperty('--bg-photo', `url("${bgSettings.url}")`);
+    } else {
+      root.style.removeProperty('--bg-photo');
+    }
+  }
+
   function applyTheme(){
     const root = document.documentElement;
     root.style.setProperty('--navy', themeSettings.navy || DEFAULT_THEME.navy);
@@ -2523,6 +2556,53 @@
       await setDoc(doc(db,'settings','theme'), { ...DEFAULT_THEME });
     } catch(err){
       alert('No se pudo restaurar los colores.');
+      console.error(err);
+    }
+  }
+
+  function previewBgPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingBgPhotoFile = file;
+    document.getElementById('bgPhotoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Fondo de la app" style="width:100%; border-radius:8px; display:block;">`;
+  }
+
+  async function saveBackgroundSettings(){
+    const status = document.getElementById('bgSettingsStatus');
+    if(!pendingBgPhotoFile){
+      status.textContent = 'Selecciona antes una foto.';
+      setTimeout(()=> status.textContent = '', 2500);
+      return;
+    }
+    status.textContent = 'Subiendo...';
+    try{
+      const fileRef = ref(storage, `background/${Date.now()}_${pendingBgPhotoFile.name}`);
+      await uploadBytes(fileRef, pendingBgPhotoFile);
+      const url = await getDownloadURL(fileRef);
+      await setDoc(doc(db,'settings','background'), { url });
+      pendingBgPhotoFile = null;
+      document.getElementById('bgPhotoInput').value = '';
+      document.getElementById('bgPhotoPreview').innerHTML = '';
+      status.textContent = '✓ Guardado';
+      setTimeout(()=> status.textContent = '', 2500);
+    } catch(err){
+      status.textContent = '';
+      alert('No se pudo guardar el fondo.');
+      console.error(err);
+    }
+  }
+
+  async function resetBackgroundSettings(){
+    const status = document.getElementById('bgSettingsStatus');
+    try{
+      await setDoc(doc(db,'settings','background'), { url: null });
+      pendingBgPhotoFile = null;
+      document.getElementById('bgPhotoInput').value = '';
+      document.getElementById('bgPhotoPreview').innerHTML = '';
+      status.textContent = '✓ Restaurado el degradado';
+      setTimeout(()=> status.textContent = '', 2500);
+    } catch(err){
+      alert('No se pudo quitar la foto de fondo.');
       console.error(err);
     }
   }
@@ -6347,6 +6427,7 @@
     document.getElementById('fidelidadRankingPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('heroAdminPanel').style.display = isAdmin ? 'block' : 'none';
     document.getElementById('themeAdminPanel').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('bgAdminPanel').style.display = isAdmin ? 'block' : 'none';
     const edicionPanelEl = document.getElementById('edicionPanel');
     if(edicionPanelEl) edicionPanelEl.style.display = isAdmin ? 'block' : 'none';
     const edicionHistorialPanelEl = document.getElementById('edicionHistorialPanel');
@@ -6381,7 +6462,7 @@
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,
     handleUploadTicket, submitSurpriseIdentity, saveSurpriseSettings, markSurprisePrizeClaimed, resetSurpriseSeason,
     addSurpriseStepRow, removeSurpriseStep, updateSurpriseStep,
-    saveHeroSettings, resetHeroSettings, saveThemeSettings, resetThemeSettings,
+    saveHeroSettings, resetHeroSettings, saveThemeSettings, resetThemeSettings, previewBgPhoto, saveBackgroundSettings, resetBackgroundSettings,
     previewOfferImage, addOffer, deleteOffer,
     openQrScanner, closeQrScanner, printQrSheet,
     submitTesoroIdentity, saveTesoroSettings, markTesoroPrizeClaimed, resetTesoroSeason, saveContestSettings, selectContestTab,

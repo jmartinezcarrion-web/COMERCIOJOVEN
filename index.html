@@ -1010,7 +1010,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.8 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.9 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1258,6 +1258,11 @@
         <div class="field"><label>Página web (opcional)</label><input type="text" id="shopWebsite" placeholder="www.minegocio.com"></div>
         <div class="field"><label>Instagram (opcional)</label><input type="text" id="shopInstagram" placeholder="instagram.com/tucomercio o @tucomercio"></div>
         <div class="field"><label>Facebook (opcional)</label><input type="text" id="shopFacebook" placeholder="facebook.com/tucomercio"></div>
+        <div class="field" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="shopOnlineSales" style="width:auto;">
+          <label for="shopOnlineSales" style="margin:0;">🛒 Este comercio también vende online</label>
+        </div>
+        <div class="field"><label>Enlace de venta online (opcional)</label><input type="text" id="shopOnlineSalesUrl" placeholder="Tienda online, catálogo de Instagram, pedidos por WhatsApp..."></div>
         <div class="field">
           <label>Visible para</label>
           <select id="shopAudience">
@@ -4393,6 +4398,8 @@
     const website = document.getElementById('shopWebsite').value.trim();
     const instagram = document.getElementById('shopInstagram').value.trim();
     const facebook = document.getElementById('shopFacebook').value.trim();
+    const onlineSales = document.getElementById('shopOnlineSales').checked;
+    const onlineSalesUrl = document.getElementById('shopOnlineSalesUrl').value.trim();
     const audience = document.getElementById('shopAudience').value;
     const contactName = document.getElementById('shopContactName').value.trim();
     const contactPhone = document.getElementById('shopContactPhone').value.trim();
@@ -4426,10 +4433,10 @@
       }
       interiorPhotos = interiorPhotos.filter(Boolean);
       if(isEditing){
-        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
+        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       } else {
         const c1 = shopPalette[shops.length % shopPalette.length];
-        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
+        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       }
       pendingLogoFile = null;
       pendingShopPhotoFile = null;
@@ -4455,6 +4462,8 @@
     document.getElementById('shopWebsite').value = s.website || '';
     document.getElementById('shopInstagram').value = s.instagram || '';
     document.getElementById('shopFacebook').value = s.facebook || '';
+    document.getElementById('shopOnlineSales').checked = !!s.onlineSales;
+    document.getElementById('shopOnlineSalesUrl').value = s.onlineSalesUrl || '';
     document.getElementById('shopAudience').value = s.audience || 'todos';
     document.getElementById('shopContactName').value = s.contactName || '';
     document.getElementById('shopContactPhone').value = s.contactPhone || '';
@@ -5082,6 +5091,11 @@
           <div class="field"><label>Página web</label><input type="text" id="miComercioWebsite" value="${s.website || ''}"></div>
           <div class="field"><label>Instagram</label><input type="text" id="miComercioInstagram" placeholder="@tucomercio" value="${s.instagram || ''}"></div>
           <div class="field"><label>Facebook</label><input type="text" id="miComercioFacebook" placeholder="facebook.com/tucomercio" value="${s.facebook || ''}"></div>
+          <div class="field" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="miComercioOnlineSales" style="width:auto;" ${s.onlineSales ? 'checked' : ''}>
+            <label for="miComercioOnlineSales" style="margin:0;">🛒 También vendo online</label>
+          </div>
+          <div class="field"><label>Enlace de venta online (opcional)</label><input type="text" id="miComercioOnlineSalesUrl" placeholder="Tienda online, catálogo de Instagram, pedidos por WhatsApp..." value="${s.onlineSalesUrl || ''}"></div>
           <div class="logo-upload">
             <div class="logo-preview small" id="miComercioPhotoPreview">${s.photo ? `<img src="${s.photo}" alt="Foto">` : '<span>Sin foto</span>'}</div>
             <div style="flex:1">
@@ -5122,6 +5136,8 @@
       const website = document.getElementById('miComercioWebsite').value.trim();
       const instagram = document.getElementById('miComercioInstagram').value.trim();
       const facebook = document.getElementById('miComercioFacebook').value.trim();
+      const onlineSales = document.getElementById('miComercioOnlineSales').checked;
+      const onlineSalesUrl = document.getElementById('miComercioOnlineSalesUrl').value.trim();
       let photo = s.photo || null;
       if(pendingMiComercioPhotoFile){
         const fileRef = ref(storage, `shops/${Date.now()}_${pendingMiComercioPhotoFile.name}`);
@@ -5143,7 +5159,7 @@
         }
       }
       interiorPhotos = interiorPhotos.filter(Boolean);
-      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, photo, logo, interiorPhotos });
+      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, photo, logo, interiorPhotos });
       pendingMiComercioPhotoFile = null;
       pendingMiComercioLogoFile = null;
       pendingMiComercioInteriorFiles = [null, null, null, null];
@@ -6119,6 +6135,7 @@
       const websiteUrl = s.website ? (/^https?:\/\//i.test(s.website) ? s.website : 'https://' + s.website) : null;
       const instagramUrl = s.instagram ? (/^https?:\/\//i.test(s.instagram) ? s.instagram : 'https://instagram.com/' + s.instagram.replace(/^@/,'').replace(/^instagram\.com\//i,'')) : null;
       const facebookUrl = s.facebook ? (/^https?:\/\//i.test(s.facebook) ? s.facebook : 'https://' + s.facebook.replace(/^facebook\.com\//i,'facebook.com/')) : null;
+      const onlineSalesUrl = s.onlineSalesUrl ? (/^https?:\/\//i.test(s.onlineSalesUrl) ? s.onlineSalesUrl : 'https://' + s.onlineSalesUrl) : null;
       return `
       <div class="shop-card" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))" title="Ver en Google Maps">
         ${isAdmin ? `<button class="shop-delete" onclick="event.stopPropagation(); deleteShop('${s.id}')" title="Eliminar comercio">✕</button>` : ''}
@@ -6128,15 +6145,16 @@
           ${s.photo && s.logo ? `<img src="${s.logo}" alt="Logo de ${s.name}" class="shop-logo-badge">` : ''}
         </div>
         <div class="body">
-          <h4>${s.name} ${s.audience === 'socios' ? `<span class="badge al-dia" style="font-size:9px; padding:2px 6px; vertical-align:middle;">Socios</span>` : ''}</h4>
+          <h4>${s.name} ${s.audience === 'socios' ? `<span class="badge al-dia" style="font-size:9px; padding:2px 6px; vertical-align:middle;">Socios</span>` : ''} ${s.onlineSales ? `<span class="badge" style="font-size:9px; padding:2px 6px; vertical-align:middle; background:var(--teal); color:#fff;">🛒 Venta online</span>` : ''}</h4>
           <span class="cat">${s.cat}</span>
           ${s.address ? `<div style="margin:4px 0 0; font-size:12.5px; color:var(--navy-deep);">📍 ${s.address}</div>` : ''}
           ${isAdmin && (s.contactName || s.contactPhone) ? `<div style="margin:4px 0 0; font-size:11.5px; color:#123024; overflow-wrap:anywhere;">🔒 <span title="Solo lo ves tú como administrador, nunca los clientes">${s.contactName || 'Sin nombre'}${s.contactPhone ? ' · 📞 ' + s.contactPhone : ''} (privado)</span></div>` : ''}
-          ${s.phone || websiteUrl || instagramUrl || facebookUrl ? `<div class="shop-links">
+          ${s.phone || websiteUrl || instagramUrl || facebookUrl || onlineSalesUrl ? `<div class="shop-links">
             ${s.phone ? `<a href="tel:${s.phone.replace(/\s+/g,'')}" onclick="event.stopPropagation()" title="Llamar">📞 ${s.phone}</a>` : ''}
             ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Visitar web">🌐 Web</a>` : ''}
             ${instagramUrl ? `<a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Instagram">📷 Instagram</a>` : ''}
             ${facebookUrl ? `<a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Facebook">📘 Facebook</a>` : ''}
+            ${onlineSalesUrl ? `<a href="${onlineSalesUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Comprar online">🛒 Comprar online</a>` : ''}
           </div>` : ''}
           ${s.interiorPhotos && s.interiorPhotos.length ? `<div style="display:flex; gap:6px; margin-top:10px;">
             ${s.interiorPhotos.slice(0,4).map((url, i) => `<img src="${url}" alt="Foto interior de ${s.name}" onclick="event.stopPropagation(); openGalleryModal('${s.id}', ${i})" style="width:52px; height:52px; object-fit:cover; border-radius:6px; cursor:pointer;">`).join('')}

@@ -1025,7 +1025,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.11 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.12 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1534,7 +1534,7 @@
 
     <div class="admin-panel" id="edicionPanel" style="display:block">
       <span class="tag">⚙ Fechas y visibilidad (administrador)</span>
-      <p style="margin:0 0 16px; font-size:13px; color:#123024;">Pon una fecha de inicio y una de fin a cada concurso: se activará y desactivará solo, sin que tengas que acordarte de tocar nada. Si dejas las fechas vacías, el concurso se controla a mano con "Activo manual". Al pasar la fecha de fin, el concurso desaparece de las páginas públicas y solo queda visible aquí abajo, en el historial.</p>
+      <p style="margin:0 0 16px; font-size:13px; color:#123024;">Pon una fecha de inicio y una de fin a cada concurso: se activará y desactivará solo, sin que tengas que acordarte de tocar nada. Si dejas las fechas vacías, el concurso se controla a mano con "Activo manual". Con "Visible para" eliges si lo puede ver cualquier cliente o solo los socios logueados — al pasar la fecha de fin, el concurso desaparece de las páginas públicas y solo queda visible aquí abajo, en el historial.</p>
       <div id="edicionList" style="display:grid; gap:18px;"></div>
       <button class="btn" type="button" onclick="saveContestSettings()" style="margin-top:18px;">Guardar edición de concursos</button>
       <span id="contestSettingsStatus" style="margin-left:12px; font-size:12.5px; color:var(--teal-deep);"></span>
@@ -2036,10 +2036,10 @@
 
   // ===== Qué concursos están activos y dónde se muestran =====
   let contestSettings = {
-    pasaporte: { active: true, showInicio: true, startDate: '', endDate: '' },
-    reto: { active: true, showInicio: false, startDate: '', endDate: '' },
-    tesoro: { active: true, showInicio: false, startDate: '', endDate: '' },
-    fidelidad: { active: false, showInicio: false, startDate: '', endDate: '' }
+    pasaporte: { active: true, showInicio: true, startDate: '', endDate: '', audience: 'todos' },
+    reto: { active: true, showInicio: false, startDate: '', endDate: '', audience: 'todos' },
+    tesoro: { active: true, showInicio: false, startDate: '', endDate: '', audience: 'todos' },
+    fidelidad: { active: false, showInicio: false, startDate: '', endDate: '', audience: 'todos' }
   };
   const CONTEST_LABELS = {
     pasaporte: '🛂 Pasaporte de sellos',
@@ -2067,6 +2067,16 @@
       return true;
     }
     return !!c.active;
+  }
+  // ¿Lo puede ver quien está mirando ahora mismo la app? Combina las fechas/
+  // "Activo manual" con a quién se lo hemos restringido (todos o solo socios).
+  // El administrador siempre lo ve, esté o no dentro de su público.
+  function isContestVisibleNow(key){
+    if(!isContestActive(key)) return false;
+    if(isAdmin) return true;
+    const c = contestSettings[key];
+    if(c && c.audience === 'socios') return isSocio;
+    return true;
   }
   // ¿Ya pasó su fecha de fin? (para moverlo al historial)
   function isContestFinished(key){
@@ -2297,7 +2307,7 @@
   // identidad guardada en este dispositivo, guarda el sello pendiente y pide
   // nombre/teléfono antes de escribir en Firestore.
   async function registerStamp(shopId){
-    if(!isContestActive('pasaporte')){
+    if(!isContestVisibleNow('pasaporte')){
       alert('El Pasaporte de sellos no está activo ahora mismo. Vuelve a intentarlo cuando esté en marcha.');
       return;
     }
@@ -2502,10 +2512,10 @@
     if(snap.exists()){
       const d = snap.data();
       contestSettings = {
-        pasaporte: { active: d.pasaporte?.active !== false, showInicio: !!d.pasaporte?.showInicio, startDate: d.pasaporte?.startDate || '', endDate: d.pasaporte?.endDate || '' },
-        reto: { active: d.reto?.active !== false, showInicio: !!d.reto?.showInicio, startDate: d.reto?.startDate || '', endDate: d.reto?.endDate || '' },
-        tesoro: { active: d.tesoro?.active !== false, showInicio: !!d.tesoro?.showInicio, startDate: d.tesoro?.startDate || '', endDate: d.tesoro?.endDate || '' },
-        fidelidad: { active: !!d.fidelidad?.active, showInicio: !!d.fidelidad?.showInicio, startDate: d.fidelidad?.startDate || '', endDate: d.fidelidad?.endDate || '' }
+        pasaporte: { active: d.pasaporte?.active !== false, showInicio: !!d.pasaporte?.showInicio, startDate: d.pasaporte?.startDate || '', endDate: d.pasaporte?.endDate || '', audience: d.pasaporte?.audience || 'todos' },
+        reto: { active: d.reto?.active !== false, showInicio: !!d.reto?.showInicio, startDate: d.reto?.startDate || '', endDate: d.reto?.endDate || '', audience: d.reto?.audience || 'todos' },
+        tesoro: { active: d.tesoro?.active !== false, showInicio: !!d.tesoro?.showInicio, startDate: d.tesoro?.startDate || '', endDate: d.tesoro?.endDate || '', audience: d.tesoro?.audience || 'todos' },
+        fidelidad: { active: !!d.fidelidad?.active, showInicio: !!d.fidelidad?.showInicio, startDate: d.fidelidad?.startDate || '', endDate: d.fidelidad?.endDate || '', audience: d.fidelidad?.audience || 'todos' }
       };
     }
     renderAll();
@@ -2884,7 +2894,7 @@
   }
 
   async function verifyRetoQr(stepIndex){
-    if(!isContestActive('reto')){
+    if(!isContestVisibleNow('reto')){
       alert('El Reto sorpresa no está activo ahora mismo. Vuelve a intentarlo cuando esté en marcha.');
       return;
     }
@@ -2972,7 +2982,7 @@
     // comercio en concreto forme parte de la ronda actual (los QR de cada
     // comercio son fijos para siempre, así que un cliente podría escanear un
     // QR de una edición antigua, o de un comercio que ya no participa).
-    if(!isContestActive('tesoro')){
+    if(!isContestVisibleNow('tesoro')){
       alert('La Caza del tesoro no está activa ahora mismo. Vuelve a intentarlo cuando esté en marcha.');
       return;
     }
@@ -3151,7 +3161,7 @@
   // No registra nada todavía: solo abre el formulario de foto + importe para
   // ese comercio (o, si hace falta, primero pide el nombre y teléfono).
   function handleFidelidadQr(shopId){
-    if(!isContestActive('fidelidad')){
+    if(!isContestVisibleNow('fidelidad')){
       alert('El concurso "Tu fidelidad tiene premio" no está activo ahora mismo.');
       return;
     }
@@ -3453,7 +3463,7 @@
     // Al administrador, en cambio, se le dejan siempre las 3 pestañas disponibles
     // (esté o no activado cada concurso), para que pueda configurar y editar
     // cualquiera de los 3 aunque todavía no esté activo de cara al público.
-    const activeKeys = ALL_CONTEST_KEYS.filter(k => isContestActive(k));
+    const activeKeys = ALL_CONTEST_KEYS.filter(k => isContestVisibleNow(k));
     const tabKeys = isAdmin ? ALL_CONTEST_KEYS : activeKeys;
     if(!tabKeys.includes(currentContestTab)) currentContestTab = tabKeys[0] || null;
 
@@ -3476,6 +3486,9 @@
           if(isAdmin && !isContestActive(k)){
             tag = isContestFinished(k) ? ' <span style="opacity:.7; font-size:11px;">(finalizado)</span>' : (isContestScheduled(k) ? ' <span style="opacity:.7; font-size:11px;">(programado)</span>' : ' <span style="opacity:.7; font-size:11px;">(inactivo)</span>');
           }
+          if(isAdmin && contestSettings[k]?.audience === 'socios'){
+            tag += ' <span style="opacity:.7; font-size:11px;">(solo socios)</span>';
+          }
           return `<button type="button" class="${k === currentContestTab ? 'active' : ''}" onclick="selectContestTab('${k}')">${CONTEST_LABELS[k]}${tag}</button>`;
         }).join('');
       } else {
@@ -3491,10 +3504,10 @@
     const inicioBox = document.getElementById('inicioContestsBox');
     if(inicioBox){
       const teasers = [];
-      if(isContestActive('pasaporte') && contestSettings.pasaporte.showInicio) teasers.push(['pasaporte', '🛂 Pasaporte de sellos', 'Visita comercios asociados y consigue tu premio.']);
-      if(isContestActive('reto') && contestSettings.reto.showInicio) teasers.push(['reto', '🎁 Reto sorpresa', 'Sigue las pistas y descubre el premio sorpresa.']);
-      if(isContestActive('tesoro') && contestSettings.tesoro.showInicio) teasers.push(['tesoro', '🔍 Caza del tesoro', 'Busca los QR escondidos y gana un vale regalo.']);
-      if(isContestActive('fidelidad') && contestSettings.fidelidad.showInicio) teasers.push(['fidelidad', '🎟️ Tu fidelidad tiene premio', 'Sube tus tiques de compra y opta al premio al cliente más fiel.']);
+      if(isContestVisibleNow('pasaporte') && contestSettings.pasaporte.showInicio) teasers.push(['pasaporte', '🛂 Pasaporte de sellos', 'Visita comercios asociados y consigue tu premio.']);
+      if(isContestVisibleNow('reto') && contestSettings.reto.showInicio) teasers.push(['reto', '🎁 Reto sorpresa', 'Sigue las pistas y descubre el premio sorpresa.']);
+      if(isContestVisibleNow('tesoro') && contestSettings.tesoro.showInicio) teasers.push(['tesoro', '🔍 Caza del tesoro', 'Busca los QR escondidos y gana un vale regalo.']);
+      if(isContestVisibleNow('fidelidad') && contestSettings.fidelidad.showInicio) teasers.push(['fidelidad', '🎟️ Tu fidelidad tiene premio', 'Sube tus tiques de compra y opta al premio al cliente más fiel.']);
       if(teasers.length === 0){
         inicioBox.innerHTML = '';
         inicioBox.style.display = 'none';
@@ -3547,12 +3560,19 @@
               <input type="date" id="edicionEnd-${k}" value="${c.endDate || ''}">
             </div>
           </div>
-          <div style="display:flex; gap:18px; flex-wrap:wrap;">
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:center;">
             <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#123024;">
               <input type="checkbox" id="edicionInicio-${k}" style="width:auto;" ${c.showInicio ? 'checked' : ''}> Avisar en Inicio
             </label>
             <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#123024;">
               <input type="checkbox" id="edicionActive-${k}" style="width:auto;" ${c.active ? 'checked' : ''}> Activo manual (solo si dejas las fechas vacías)
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:500; color:#123024;">
+              Visible para
+              <select id="edicionAudience-${k}" style="width:auto; padding:4px 8px;">
+                <option value="todos" ${c.audience !== 'socios' ? 'selected' : ''}>Clientes</option>
+                <option value="socios" ${c.audience === 'socios' ? 'selected' : ''}>Socios</option>
+              </select>
             </label>
           </div>
         </div>`;
@@ -3579,7 +3599,8 @@
         active: document.getElementById('edicionActive-'+k).checked,
         showInicio: document.getElementById('edicionInicio-'+k).checked,
         startDate: document.getElementById('edicionStart-'+k).value || '',
-        endDate: document.getElementById('edicionEnd-'+k).value || ''
+        endDate: document.getElementById('edicionEnd-'+k).value || '',
+        audience: document.getElementById('edicionAudience-'+k).value || 'todos'
       };
     });
     const status = document.getElementById('contestSettingsStatus');

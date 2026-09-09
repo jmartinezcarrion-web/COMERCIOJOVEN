@@ -979,7 +979,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.3 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.4 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -3968,10 +3968,14 @@
         statusEl.textContent = 'No se han podido identificar todas las columnas de la tabla en el PDF. Prueba a pegar los datos a mano.';
         return;
       }
-      const bDiaHora = hHora.x;
-      const bHoraBuque = hBuque.x;
-      const bBuqueNaviera = hNaviera.x;
-      const bNavieraPax = hPax.x;
+      // Los valores de cada fila empiezan ligeramente a la izquierda del arranque
+      // de su propia cabecera (por cómo el PDF posiciona el texto); un pequeño
+      // margen evita que se cuelen en la columna anterior.
+      const COL_MARGIN = 2.5;
+      const bDiaHora = hHora.x - COL_MARGIN;
+      const bHoraBuque = hBuque.x - COL_MARGIN;
+      const bBuqueNaviera = hNaviera.x - COL_MARGIN;
+      const bNavieraPax = hPax.x - COL_MARGIN;
 
       // Detectar mes/año del título del PDF (ej. "SEPTIEMBRE 2026")
       const mMatch = fullText.toLowerCase().match(/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(\d{4})/);

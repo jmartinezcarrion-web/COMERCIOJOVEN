@@ -1200,6 +1200,15 @@
             <p style="margin:6px 0 0; font-size:11.5px; color:var(--navy-deep);">Aparecerá como distintivo pequeño sobre la foto.</p>
           </div>
         </div>
+        <div class="field">
+          <label>Fotos del interior (opcional, hasta 4 — los clientes las verán en una pequeña galería)</label>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:6px;">
+            <div><div class="logo-preview small" id="shopInteriorPreview0"><span>1</span></div><input type="file" accept="image/*" id="shopInteriorInput0" onchange="previewShopInterior(event, 0)" style="width:100%; margin-top:4px; font-size:11px;"></div>
+            <div><div class="logo-preview small" id="shopInteriorPreview1"><span>2</span></div><input type="file" accept="image/*" id="shopInteriorInput1" onchange="previewShopInterior(event, 1)" style="width:100%; margin-top:4px; font-size:11px;"></div>
+            <div><div class="logo-preview small" id="shopInteriorPreview2"><span>3</span></div><input type="file" accept="image/*" id="shopInteriorInput2" onchange="previewShopInterior(event, 2)" style="width:100%; margin-top:4px; font-size:11px;"></div>
+            <div><div class="logo-preview small" id="shopInteriorPreview3"><span>4</span></div><input type="file" accept="image/*" id="shopInteriorInput3" onchange="previewShopInterior(event, 3)" style="width:100%; margin-top:4px; font-size:11px;"></div>
+          </div>
+        </div>
         <div class="field"><label>Nombre del comercio</label><input type="text" id="shopName" required placeholder="Ej: Frutería del Carmen"></div>
         <div class="field"><label>Sector</label><input type="text" id="shopCat" required placeholder="Ej: Alimentación"></div>
         <div class="field"><label>Dirección</label><input type="text" id="shopAddress" placeholder="Calle, número, Cartagena"></div>
@@ -1784,6 +1793,20 @@
   </div>
 </div>
 
+<!-- Galería de fotos interiores de un comercio -->
+<div class="poster-modal" id="galleryModal" onclick="if(event.target===this) closeGalleryModal()">
+  <div class="poster-modal-inner" style="position:relative;">
+    <button class="poster-modal-close" onclick="closeGalleryModal()">✕</button>
+    <img id="galleryModalImg" src="" alt="Foto interior">
+    <div class="poster-modal-caption" id="galleryModalCaption"></div>
+    <div style="display:flex; justify-content:space-between; padding:10px 4px 0;">
+      <button class="icon-btn" type="button" onclick="galleryModalNav(-1)">‹ Anterior</button>
+      <span id="galleryModalCounter" style="align-self:center; font-size:12.5px; color:var(--navy-deep);"></span>
+      <button class="icon-btn" type="button" onclick="galleryModalNav(1)">Siguiente ›</button>
+    </div>
+  </div>
+</div>
+
 <div class="news-modal" id="newsModal" onclick="if(event.target===this) closeNewsModal()">
   <div class="news-modal-inner">
     <button class="poster-modal-close" onclick="closeNewsModal()">✕</button>
@@ -1894,6 +1917,7 @@
   let encuestaAlreadyVoted = false;
   let pendingMiComercioPhotoFile = null;
   let pendingMiComercioLogoFile = null;
+  let pendingMiComercioInteriorFiles = [null, null, null, null];
   // Enlace cerrado para que un comercio YA publicado complete datos que le
   // falten (p.ej. el correo) sin necesitar cuenta ni ver el resto de la web
   // (?actualizar=ID del comercio en 'shops'). Se guarda como una solicitud
@@ -3944,6 +3968,36 @@
     document.getElementById('posterModal').classList.remove('open');
   }
 
+  // ===== Galería de fotos interiores de un comercio =====
+  let galleryPhotos = [];
+  let galleryIndex = 0;
+  let galleryShopName = '';
+
+  function openGalleryModal(shopId, startIndex){
+    const s = shops.find(x => x.id === shopId);
+    if(!s || !s.interiorPhotos || !s.interiorPhotos.length) return;
+    galleryPhotos = s.interiorPhotos;
+    galleryShopName = s.name || '';
+    galleryIndex = startIndex || 0;
+    renderGalleryModal();
+    document.getElementById('galleryModal').classList.add('open');
+  }
+
+  function renderGalleryModal(){
+    document.getElementById('galleryModalImg').src = galleryPhotos[galleryIndex];
+    document.getElementById('galleryModalCaption').textContent = galleryShopName;
+    document.getElementById('galleryModalCounter').textContent = (galleryIndex+1) + ' / ' + galleryPhotos.length;
+  }
+
+  function galleryModalNav(delta){
+    galleryIndex = (galleryIndex + delta + galleryPhotos.length) % galleryPhotos.length;
+    renderGalleryModal();
+  }
+
+  function closeGalleryModal(){
+    document.getElementById('galleryModal').classList.remove('open');
+  }
+
   function openNewsModal(id){
     const n = news.find(x => x.id === id);
     if(!n) return;
@@ -4024,6 +4078,15 @@
     document.getElementById('shopLogoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Logo">`;
   }
 
+  let pendingShopInteriorFiles = [null, null, null, null];
+
+  function previewShopInterior(e, idx){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingShopInteriorFiles[idx] = file;
+    document.getElementById('shopInteriorPreview' + idx).innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto interior ${idx+1}">`;
+  }
+
   async function addShop(e){
     e.preventDefault();
     const name = document.getElementById('shopName').value;
@@ -4055,14 +4118,25 @@
         await uploadBytes(fileRef, pendingShopPhotoFile);
         photoUrl = await getDownloadURL(fileRef);
       }
+      let interiorPhotos = isEditing ? (shops.find(s => s.id === editingShopId)?.interiorPhotos || []) : [];
+      interiorPhotos = interiorPhotos.slice();
+      for(let i = 0; i < 4; i++){
+        if(pendingShopInteriorFiles[i]){
+          const fileRef = ref(storage, `shops/${Date.now()}_int${i}_${pendingShopInteriorFiles[i].name}`);
+          await uploadBytes(fileRef, pendingShopInteriorFiles[i]);
+          interiorPhotos[i] = await getDownloadURL(fileRef);
+        }
+      }
+      interiorPhotos = interiorPhotos.filter(Boolean);
       if(isEditing){
-        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, audience, logo: logoUrl, photo: photoUrl, contactName, contactPhone, quota, memberStatus });
+        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       } else {
         const c1 = shopPalette[shops.length % shopPalette.length];
-        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, contactName, contactPhone, quota, memberStatus });
+        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       }
       pendingLogoFile = null;
       pendingShopPhotoFile = null;
+      pendingShopInteriorFiles = [null, null, null, null];
       cancelEditShop();
     } catch(err){
       alert('No se pudo guardar el comercio. Revisa la conexión o los permisos de Storage/Firestore.');
@@ -4091,6 +4165,10 @@
     document.getElementById('shopMemberStatus').value = s.memberStatus || 'pendiente';
     document.getElementById('shopPhotoPreview').innerHTML = s.photo ? `<img src="${s.photo}" alt="Foto actual">` : '<span>Sin foto</span>';
     document.getElementById('shopLogoPreview').innerHTML = s.logo ? `<img src="${s.logo}" alt="Logo actual">` : '<span>Sin logo</span>';
+    for(let i = 0; i < 4; i++){
+      const url = (s.interiorPhotos && s.interiorPhotos[i]) || null;
+      document.getElementById('shopInteriorPreview' + i).innerHTML = url ? `<img src="${url}" alt="Foto interior ${i+1}">` : `<span>${i+1}</span>`;
+    }
     document.getElementById('shopFormTag').textContent = '⚙ Editando: ' + s.name;
     document.getElementById('shopSubmitBtn').textContent = 'Guardar cambios';
     document.getElementById('shopCancelEditBtn').style.display = 'inline-flex';
@@ -4101,10 +4179,14 @@
     editingShopId = null;
     pendingLogoFile = null;
     pendingShopPhotoFile = null;
+    pendingShopInteriorFiles = [null, null, null, null];
     const form = document.getElementById('shopAdminPanel').querySelector('form');
     if(form) form.reset();
     document.getElementById('shopPhotoPreview').innerHTML = '<span>Sin foto</span>';
     document.getElementById('shopLogoPreview').innerHTML = '<span>Sin logo</span>';
+    for(let i = 0; i < 4; i++){
+      document.getElementById('shopInteriorPreview' + i).innerHTML = `<span>${i+1}</span>`;
+    }
     document.getElementById('shopFormTag').textContent = '⚙ Añadir comercio (administrador)';
     document.getElementById('shopSubmitBtn').textContent = 'Añadir al directorio';
     document.getElementById('shopCancelEditBtn').style.display = 'none';
@@ -4675,6 +4757,13 @@
     document.getElementById('miComercioLogoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Logo">`;
   }
 
+  function previewMiComercioInterior(e, idx){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingMiComercioInteriorFiles[idx] = file;
+    document.getElementById('miComercioInteriorPreview' + idx).innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto interior ${idx+1}">`;
+  }
+
   function renderMiComercio(){
     const area = document.getElementById('miComercioArea');
     if(!area) return;
@@ -4710,6 +4799,12 @@
               <input type="file" accept="image/*" id="miComercioLogoInput" onchange="previewMiComercioLogo(event)">
             </div>
           </div>
+          <div class="field">
+            <label>Fotos del interior (opcional, hasta 4 — los clientes las verán en una pequeña galería)</label>
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:6px;">
+              ${[0,1,2,3].map(i => `<div><div class="logo-preview small" id="miComercioInteriorPreview${i}">${(s.interiorPhotos && s.interiorPhotos[i]) ? `<img src="${s.interiorPhotos[i]}" alt="Foto interior ${i+1}">` : `<span>${i+1}</span>`}</div><input type="file" accept="image/*" id="miComercioInteriorInput${i}" onchange="previewMiComercioInterior(event, ${i})" style="width:100%; margin-top:4px; font-size:11px;"></div>`).join('')}
+            </div>
+          </div>
           <button class="btn teal" type="submit" id="miComercioSaveBtn">Guardar cambios</button>
           <span id="miComercioStatus" style="margin-left:10px; font-size:12.5px; color:var(--teal-deep);"></span>
         </form>
@@ -4742,9 +4837,19 @@
         await uploadBytes(fileRef, pendingMiComercioLogoFile);
         logo = await getDownloadURL(fileRef);
       }
-      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, photo, logo });
+      let interiorPhotos = (s.interiorPhotos || []).slice();
+      for(let i = 0; i < 4; i++){
+        if(pendingMiComercioInteriorFiles[i]){
+          const fileRef = ref(storage, `shops/${Date.now()}_int${i}_${pendingMiComercioInteriorFiles[i].name}`);
+          await uploadBytes(fileRef, pendingMiComercioInteriorFiles[i]);
+          interiorPhotos[i] = await getDownloadURL(fileRef);
+        }
+      }
+      interiorPhotos = interiorPhotos.filter(Boolean);
+      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, photo, logo, interiorPhotos });
       pendingMiComercioPhotoFile = null;
       pendingMiComercioLogoFile = null;
+      pendingMiComercioInteriorFiles = [null, null, null, null];
       const status = document.getElementById('miComercioStatus');
       if(status){ status.textContent = '✓ Guardado'; setTimeout(()=> status.textContent = '', 3000); }
     } catch(err){
@@ -5735,6 +5840,9 @@
             ${instagramUrl ? `<a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Instagram">📷 Instagram</a>` : ''}
             ${facebookUrl ? `<a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Facebook">📘 Facebook</a>` : ''}
           </div>` : ''}
+          ${s.interiorPhotos && s.interiorPhotos.length ? `<div style="display:flex; gap:6px; margin-top:10px;">
+            ${s.interiorPhotos.slice(0,4).map((url, i) => `<img src="${url}" alt="Foto interior de ${s.name}" onclick="event.stopPropagation(); openGalleryModal('${s.id}', ${i})" style="width:52px; height:52px; object-fit:cover; border-radius:6px; cursor:pointer;">`).join('')}
+          </div>` : ''}
           <span class="map-hint">📍 Cómo llegar</span>
         </div>
       </div>`;
@@ -6084,14 +6192,14 @@
   Object.assign(window, {
     renderAll,
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
-    previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
+    previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
-    previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,
+    previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
     previewNewsProposalImage, submitNewsProposal, selectNewsType, cancelNewsProposalType, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
-    submitMemberForm, openPosterModal, closePosterModal, openNewsModal, closeNewsModal,
+    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,
     handleUploadTicket, submitSurpriseIdentity, saveSurpriseSettings, markSurprisePrizeClaimed, resetSurpriseSeason,
     addSurpriseStepRow, removeSurpriseStep, updateSurpriseStep,

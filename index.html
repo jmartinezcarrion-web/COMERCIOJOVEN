@@ -15,6 +15,7 @@
 <title>Comercio Joven Cartagena</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <style>
   :root{
     --navy:#1B4332;
@@ -978,7 +979,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.0 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.1 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1067,8 +1068,13 @@
       <div style="margin-top:22px; padding-top:18px; border-top:1px dashed var(--line);">
         <span class="tag">⚙ Importación masiva (desde PDF de la previsión)</span>
         <p style="font-size:12.5px; color:var(--navy-deep); margin:0 0 10px;">
-          Una línea por crucero, con el formato <strong>fecha;llegada;salida;buque;naviera;pasajeros</strong> (fecha en AAAA-MM-DD, horas en HH:MM). Cada año que subas un PDF nuevo, te preparo este mismo listado y lo pegas aquí.
+          Sube directamente el PDF de la previsión (formato tabla Día/Hora/Buque/Naviera/PAX del Centro Comercial Abierto) y se rellenará el listado de abajo automáticamente. Revísalo antes de pulsar "Importar todos". También puedes pegar el listado a mano con el formato <strong>fecha;llegada;salida;buque;naviera;pasajeros</strong> (fecha en AAAA-MM-DD, horas en HH:MM).
         </p>
+        <div class="field">
+          <label>📄 Subir PDF de la previsión</label>
+          <input type="file" id="cruisePdfInput" accept="application/pdf" onchange="if(this.files[0]) extractCruisesFromPdf(this.files[0]); this.value='';">
+          <span id="pdfImportStatus" style="display:block; margin-top:6px; font-size:12.5px; color:var(--teal-deep);"></span>
+        </div>
         <div class="field">
           <textarea id="cruiseBulkText" rows="8" placeholder="2026-08-10;08:00;17:00;BRITANNIA;P&O Cruises;3647&#10;2026-08-11;09:00;18:00;SUN PRINCESS;Princess Cruises;5189&#10;..." style="font-family:'Space Mono',monospace; font-size:12.5px;"></textarea>
         </div>
@@ -3900,6 +3906,122 @@
     }
   }
 
+  const MESES_ES = {enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
+
+  async function extractCruisesFromPdf(file){
+    const statusEl = document.getElementById('pdfImportStatus');
+    statusEl.style.color = 'var(--teal-deep)';
+    statusEl.textContent = 'Leyendo PDF...';
+    try{
+      if(typeof pdfjsLib === 'undefined'){
+        statusEl.style.color = '#B23A29';
+        statusEl.textContent = 'No se ha podido cargar el lector de PDF. Revisa la conexión e inténtalo de nuevo.';
+        return;
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+
+      let fullText = '';
+      let allRows = [];
+      for(let p = 1; p <= pdf.numPages; p++){
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const items = content.items
+          .map(it => ({ str: it.str, x: it.transform[4], y: it.transform[5] }))
+          .filter(it => it.str.trim() !== '');
+        fullText += ' ' + items.map(i => i.str).join(' ');
+
+        const TOL = 3;
+        const rows = [];
+        items.forEach(it => {
+          let row = rows.find(r => Math.abs(r.y - it.y) <= TOL);
+          if(!row){ row = { y: it.y, items: [] }; rows.push(row); }
+          row.items.push(it);
+        });
+        rows.forEach(r => r.items.sort((a,b) => a.x - b.x));
+        rows.sort((a,b) => b.y - a.y);
+        allRows.push(...rows);
+      }
+
+      // Localizar la fila de cabecera (Día / Hora / Buque / Naviera / PAX)
+      const headerRow = allRows.find(r => {
+        const t = r.items.map(i => i.str.toLowerCase()).join(' ');
+        return t.includes('buque') && t.includes('naviera') && t.includes('pax');
+      });
+      if(!headerRow){
+        statusEl.style.color = '#B23A29';
+        statusEl.textContent = 'No se ha reconocido la tabla del PDF (cabecera Día/Hora/Buque/Naviera/PAX no encontrada). Prueba a pegar los datos a mano.';
+        return;
+      }
+      const findHeader = (label) => headerRow.items.find(i => i.str.trim().toLowerCase().startsWith(label));
+      const hDia = findHeader('día') || findHeader('dia');
+      const hHora = findHeader('hora');
+      const hBuque = findHeader('buque');
+      const hNaviera = findHeader('naviera');
+      const hPax = findHeader('pax');
+      if(!hDia || !hHora || !hBuque || !hNaviera || !hPax){
+        statusEl.style.color = '#B23A29';
+        statusEl.textContent = 'No se han podido identificar todas las columnas de la tabla en el PDF. Prueba a pegar los datos a mano.';
+        return;
+      }
+      const bDiaHora = (hDia.x + hHora.x) / 2;
+      const bHoraBuque = (hHora.x + hBuque.x) / 2;
+      const bBuqueNaviera = (hBuque.x + hNaviera.x) / 2;
+      const bNavieraPax = (hNaviera.x + hPax.x) / 2;
+
+      // Detectar mes/año del título del PDF (ej. "SEPTIEMBRE 2026")
+      const mMatch = fullText.toLowerCase().match(/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(\d{4})/);
+      const month = mMatch ? MESES_ES[mMatch[1]] : null;
+      const year = mMatch ? mMatch[2] : null;
+
+      const dataRows = allRows.filter(r => r.y < headerRow.y - 2);
+      const results = [];
+      let sinFecha = 0;
+      dataRows.forEach(r => {
+        const cols = { dia: [], hora: [], buque: [], naviera: [], pax: [] };
+        r.items.forEach(it => {
+          if(it.x < bDiaHora) cols.dia.push(it.str);
+          else if(it.x < bHoraBuque) cols.hora.push(it.str);
+          else if(it.x < bBuqueNaviera) cols.buque.push(it.str);
+          else if(it.x < bNavieraPax) cols.naviera.push(it.str);
+          else cols.pax.push(it.str);
+        });
+        const dia = cols.dia.join(' ').trim();
+        const hora = cols.hora.join(' ').trim();
+        const buque = cols.buque.join(' ').trim();
+        const naviera = cols.naviera.join(' ').trim();
+        const paxRaw = cols.pax.join(' ').trim().replace(/\./g, '');
+
+        if(!/^\d{1,2}$/.test(dia) || !buque || !naviera || !/^\d+$/.test(paxRaw)) return;
+
+        const horaMatch = hora.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+        const arrival = horaMatch ? horaMatch[1] : '';
+        const departure = horaMatch ? horaMatch[2] : '';
+        if(!month || !year) sinFecha++;
+        const dateStr = (month && year) ? `${year}-${month}-${dia.padStart(2,'0')}` : `????-??-${dia.padStart(2,'0')}`;
+
+        results.push(`${dateStr};${arrival};${departure};${buque};${naviera};${paxRaw}`);
+      });
+
+      if(results.length === 0){
+        statusEl.style.color = '#B23A29';
+        statusEl.textContent = 'No se ha podido extraer ningún crucero del PDF. Revisa que sea el formato habitual (tabla Día/Hora/Buque/Naviera/PAX) o pega los datos a mano.';
+        return;
+      }
+
+      document.getElementById('cruiseBulkText').value = results.join('\n');
+      const mesTexto = (month && year) ? `${mMatch[1]} ${year}` : null;
+      statusEl.style.color = 'var(--teal-deep)';
+      statusEl.textContent = `✓ ${results.length} cruceros extraídos del PDF` + (mesTexto ? ` (${mesTexto})` : '') + '. Revisa el listado antes de pulsar "Importar todos".' + (sinFecha ? ` ⚠ No se detectó el mes/año en ${sinFecha} línea(s): completa la fecha a mano.` : '');
+    } catch(err){
+      console.error(err);
+      statusEl.style.color = '#B23A29';
+      statusEl.textContent = 'Error al leer el PDF. Prueba con otro archivo o pega los datos a mano.';
+    }
+  }
+
   async function importCruisesBulk(){
     const raw = document.getElementById('cruiseBulkText').value.trim();
     const statusEl = document.getElementById('bulkImportStatus');
@@ -6227,7 +6349,7 @@
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
     renderAll,
-    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
+    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, extractCruisesFromPdf, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,

@@ -161,6 +161,7 @@
     background:var(--navy-deep);
     display:flex;
     flex-wrap:wrap;
+    justify-content:center;
     gap:2px;
     padding:0 20px;
     overflow-x:auto;
@@ -174,9 +175,9 @@
   }
   .nav .nav-label:first-child{ padding-top:6px; }
   .admin-panel-dropdown{
-    position:absolute; top:100%; left:0; margin-top:2px;
+    position:fixed; top:0; left:0;
     background:var(--navy-deep); border:1px solid rgba(243,238,226,0.3);
-    border-radius:8px; padding:6px; z-index:100; min-width:190px;
+    border-radius:8px; padding:6px; z-index:1000; min-width:190px;
     box-shadow:0 10px 30px rgba(0,0,0,0.4);
     display:flex; flex-direction:column; gap:2px;
   }
@@ -3652,10 +3653,20 @@
   }
 
   function toggleAdminPanelMenu(e){
-    e.stopPropagation();
+    if(e) e.stopPropagation();
     const menu = document.getElementById('adminPanelDropdown');
-    if(!menu) return;
-    menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+    const btn = document.getElementById('navAdminPanelBtn');
+    if(!menu || !btn) return;
+    if(menu.style.display === 'flex'){
+      menu.style.display = 'none';
+    } else {
+      // position:fixed calculado a mano, para que no lo recorte el
+      // desplazamiento horizontal del menú (overflow-x:auto en .nav).
+      const rect = btn.getBoundingClientRect();
+      menu.style.top = (rect.bottom + 4) + 'px';
+      menu.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 200)) + 'px';
+      menu.style.display = 'flex';
+    }
   }
   // Cierra el desplegable del panel admin al tocar en cualquier otro sitio
   // (incluye pulsar una de sus propias opciones, gracias a que el clic

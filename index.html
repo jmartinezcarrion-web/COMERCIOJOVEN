@@ -1707,7 +1707,7 @@
       <div class="table-scroll">
       <table class="member-table">
         <thead>
-          <tr><th>Comercio</th><th>Contacto</th><th>Cuota</th><th>Estado</th><th></th></tr>
+          <tr><th>Comercio</th><th>Contacto</th><th>Cuota</th><th>Estado</th><th>Acceso a la app</th><th></th></tr>
         </thead>
         <tbody id="membersBody"></tbody>
       </table>
@@ -1821,7 +1821,7 @@
   import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getFirestore, collection, addDoc, doc, deleteDoc, updateDoc, runTransaction,
-    onSnapshot, query, orderBy, serverTimestamp, getDoc, setDoc
+    onSnapshot, query, orderBy, where, getDocs, serverTimestamp, getDoc, setDoc
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import {
     getStorage, ref, uploadBytes, getDownloadURL
@@ -3742,6 +3742,19 @@
         admin = false;
       }
       userMode = admin ? 'admin' : 'socio';
+      // Si es un socio (no admin), anota en su ficha cuándo entró por
+      // última vez — así en "Socios y pagos" se puede ver quién ha llegado
+      // a usar su acceso y quién todavía no.
+      if(!admin && user.email){
+        try{
+          const q = query(collection(db,'shops'), where('contactEmail', '==', user.email));
+          const results = await getDocs(q);
+          results.forEach(async (shopDoc) => {
+            try{ await updateDoc(doc(db,'shops', shopDoc.id), { lastLoginAt: serverTimestamp() }); }
+            catch(e){ console.error('No se pudo anotar la entrada del socio:', e); }
+          });
+        } catch(err){ console.error('No se pudo buscar el comercio del socio:', err); }
+      }
     } else {
       userMode = (userMode === 'admin' || userMode === 'socio') ? 'cliente' : userMode;
     }
@@ -5223,7 +5236,7 @@
   // contraseña — nosotros nunca llegamos a verla.
   // Lógica compartida para crear (o reactivar) el acceso de un socio: la
   // usan tanto el panel "Socios y pagos" como el modal de ficha de socio.
-  async function sendMemberAccessEmail(email, onStatus){
+  async function sendMemberAccessEmail(email, onStatus, shopId){
     if(!email){ alert('Escribe primero el correo del socio y guarda los datos.'); return; }
     if(onStatus) onStatus('Creando acceso...');
     let secondaryApp, secondaryAuth;
@@ -5240,6 +5253,12 @@
       }
       await sendPasswordResetEmail(secondaryAuth, email);
       await signOut(secondaryAuth);
+      // Anota cuándo se envió el acceso, para poder mostrarlo en la tabla
+      // de socios ("acceso enviado" vs "todavía sin acceso").
+      if(shopId){
+        try{ await updateDoc(doc(db,'shops', shopId), { accessSentAt: serverTimestamp() }); }
+        catch(e){ console.error('No se pudo anotar el envío de acceso:', e); }
+      }
       if(onStatus){ onStatus('✓ Correo de acceso enviado a ' + email); setTimeout(()=> onStatus(''), 4000); }
       else alert('✓ Correo de acceso enviado a ' + email);
     } catch(err){
@@ -5252,13 +5271,14 @@
 
   function createMemberAccess(){
     const email = document.getElementById('memEmail').value.trim();
+    const shopId = document.getElementById('memShopSelect').value;
     const status = document.getElementById('memberSettingsStatus');
-    sendMemberAccessEmail(email, (t) => status.textContent = t);
+    sendMemberAccessEmail(email, (t) => status.textContent = t, shopId);
   }
 
   function createMemberAccessFromModal(){
     const email = document.getElementById('socioContactEmail').value.trim();
-    sendMemberAccessEmail(email);
+    sendMemberAccessEmail(email, null, socioModalTarget ? socioModalTarget.id : null);
   }
 
   // Cambia el estado de cuota de un socio vinculado a un comercio (se guarda
@@ -5742,12 +5762,21 @@
     document.getElementById('membersBody').innerHTML = allSocios.map((m) => {
       const shopData = m.linked ? shops.find(sh => sh.id === m.shopId) : null;
       const memberEmail = shopData ? shopData.contactEmail : null;
+      let accessCell;
+      if(shopData && shopData.lastLoginAt){
+        accessCell = `<span class="badge al-dia" title="Última entrada: ${fmtNewsDate(shopData.lastLoginAt)}">✓ Ha entrado</span>`;
+      } else if(shopData && shopData.accessSentAt){
+        accessCell = `<span class="badge pendiente">Acceso enviado, aún no ha entrado</span>`;
+      } else {
+        accessCell = `<span style="color:var(--navy-deep); font-size:12px;">Sin acceso</span>`;
+      }
       return `
       <tr onclick="openSocioModal('${m.linked ? 'shop' : 'legacy'}', '${m.linked ? m.shopId : m.id}')" style="cursor:pointer;">
         <td><strong style="color:#123024;">${m.shop}</strong>${!m.linked ? ' <span class="badge pendiente" style="font-size:9px; padding:2px 5px; vertical-align:middle;" title="Socio antiguo, sin vincular a una ficha de comercio">sin vincular</span>' : ''}</td>
         <td><span style="color:#123024;">${m.contact}</span><br><span style="color:var(--navy-deep); font-size:12px;">${m.phone}</span></td>
         <td class="mono" style="color:#123024;">${m.quota}€</td>
         <td><span class="badge ${m.status === 'al_dia' ? 'al-dia' : 'pendiente'}">${m.status === 'al_dia' ? 'Al día' : 'Pendiente'}</span></td>
+        <td>${accessCell}</td>
         <td>
           ${isAdmin ? `
           <div class="row-actions">
@@ -5761,7 +5790,7 @@
           </div>` : ''}
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="5" style="text-align:center; color:var(--navy-deep); padding:20px;">Todavía no hay ningún socio. Rellena los datos de socio en la ficha de un comercio, o desde el formulario de arriba.</td></tr>';
+    }).join('') || '<tr><td colspan="6" style="text-align:center; color:var(--navy-deep); padding:20px;">Todavía no hay ningún socio. Rellena los datos de socio en la ficha de un comercio, o desde el formulario de arriba.</td></tr>';
 
     // Desplegable de comercios para el alta rápida de socio
     const shopSelectEl = document.getElementById('memShopSelect');

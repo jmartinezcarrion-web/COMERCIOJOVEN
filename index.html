@@ -1010,7 +1010,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.9 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.10 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1921,6 +1921,7 @@
 
   let userMode = 'cliente'; // 'cliente' | 'socio' | 'admin'
   let isAdmin = false;      // derivado de userMode + adminPreview, se recalcula en applyAdminUI()
+  let pendingLoginRedirect = false; // true justo tras pulsar "Entrar", para saltar a "Mi comercio" si es socio
   let isSocio = false;      // true si el visitante actual ve contenido "solo socios"
   let adminPreview = 'admin'; // 'admin' | 'socio' | 'cliente' — solo aplica cuando userMode === 'admin'.
                                // Deja al administrador "probar" cómo se ve la web como socio o
@@ -3843,12 +3844,14 @@
     btn.disabled = true; btn.textContent = 'Entrando...';
     errorEl.style.display = 'none';
     try{
+      pendingLoginRedirect = true;
       await signInWithEmailAndPassword(auth, email, password);
       // El propio onAuthStateChanged (más abajo) se encarga de poner
       // userMode = 'admin' y refrescar la interfaz al detectar la sesión.
       closeAdminLoginModal();
     } catch(err){
       console.error(err);
+      pendingLoginRedirect = false;
       errorEl.textContent = 'Correo o contraseña incorrectos.';
       errorEl.style.display = 'block';
     } finally {
@@ -3926,6 +3929,10 @@
     }
     adminPreview = 'admin';
     applyAdminUI();
+    if(pendingLoginRedirect){
+      pendingLoginRedirect = false;
+      if(userMode === 'socio') showView('micomercio', null);
+    }
   });
 
   function setAdminPreview(mode){

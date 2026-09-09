@@ -171,6 +171,21 @@
     color:rgba(243,238,226,0.45);
   }
   .nav .nav-label:first-child{ padding-top:6px; }
+  .admin-panel-dropdown{
+    position:absolute; top:100%; left:0; margin-top:2px;
+    background:var(--navy-deep); border:1px solid rgba(243,238,226,0.3);
+    border-radius:8px; padding:6px; z-index:100; min-width:190px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .admin-panel-dropdown button{
+    width:100%; text-align:left; padding:11px 12px; font-size:13.5px;
+    color:rgba(243,238,226,0.85); background:transparent; border:none; border-radius:5px;
+    white-space:nowrap; border-bottom:none !important;
+  }
+  .admin-panel-dropdown button:hover, .admin-panel-dropdown button.active{
+    background:rgba(243,238,226,0.14); color:#fff;
+  }
   .nav button{
     background:transparent;
     border:none;
@@ -907,9 +922,14 @@
   <button onclick="showView('subirnoticia', this)" id="navSubirNoticia">Subir noticia</button>
   <button onclick="showView('comosehace', this)" id="navComoSeHace">❓ Cómo se hace</button>
   <button onclick="showView('socio', this)">Hazte socio</button>
-  <button onclick="showView('colaboradores', this)" id="navColaboradores">Colaboradores</button>
-  <button onclick="showView('edicion', this)" id="navEdicion">Edición</button>
-  <button onclick="showView('gestion', this)" id="navGestion">Socios y pagos</button>
+  <div style="position:relative; display:inline-block;" id="navAdminPanelWrap">
+    <button type="button" onclick="toggleAdminPanelMenu(event)" id="navAdminPanelBtn">⚙️ Panel admin ▾</button>
+    <div id="adminPanelDropdown" class="admin-panel-dropdown" style="display:none;">
+      <button onclick="showView('colaboradores', this)" id="navColaboradores">Colaboradores</button>
+      <button onclick="showView('edicion', this)" id="navEdicion">Edición</button>
+      <button onclick="showView('gestion', this)" id="navGestion">Socios y pagos</button>
+    </div>
+  </div>
 </div>
 
 <div class="mode-banner" id="modeBanner"></div>
@@ -3631,6 +3651,20 @@
     return name.split(' ').filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join('').toUpperCase();
   }
 
+  function toggleAdminPanelMenu(e){
+    e.stopPropagation();
+    const menu = document.getElementById('adminPanelDropdown');
+    if(!menu) return;
+    menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+  }
+  // Cierra el desplegable del panel admin al tocar en cualquier otro sitio
+  // (incluye pulsar una de sus propias opciones, gracias a que el clic
+  // burbujea hasta aquí después de ejecutar showView).
+  document.addEventListener('click', () => {
+    const menu = document.getElementById('adminPanelDropdown');
+    if(menu) menu.style.display = 'none';
+  });
+
   function showView(id, btn){
     closeQrScanner();
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -5990,9 +6024,8 @@
       banner.style.display = 'none';
     }
 
-    document.getElementById('navGestion').style.display = isAdmin ? '' : 'none';
-    document.getElementById('navEdicion').style.display = isAdmin ? '' : 'none';
-    document.getElementById('navColaboradores').style.display = isAdmin ? '' : 'none';
+    const navAdminPanelWrapEl = document.getElementById('navAdminPanelWrap');
+    if(navAdminPanelWrapEl) navAdminPanelWrapEl.style.display = isAdmin ? 'inline-block' : 'none';
     document.getElementById('navCruceros').style.display = isSocio ? '' : 'none';
     const navNoticiasSocioEl = document.getElementById('navNoticiasSocio');
     if(navNoticiasSocioEl) navNoticiasSocioEl.style.display = isSocio ? '' : 'none';
@@ -6055,7 +6088,7 @@
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
     renderAll,
-    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
+    showView, toggleAdminPanelMenu, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, saveMiComercio,

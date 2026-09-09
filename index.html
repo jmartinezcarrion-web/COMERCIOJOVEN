@@ -979,7 +979,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.2 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.3 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -3912,6 +3912,8 @@
     const statusEl = document.getElementById('pdfImportStatus');
     statusEl.style.color = 'var(--teal-deep)';
     statusEl.textContent = 'Leyendo PDF...';
+    const prevDbg = document.getElementById('pdfImportDebug');
+    if(prevDbg) prevDbg.remove();
     try{
       if(typeof pdfjsLib === 'undefined'){
         statusEl.style.color = '#B23A29';
@@ -4006,8 +4008,22 @@
       });
 
       if(results.length === 0){
+        const debugLines = [];
+        debugLines.push(`Cabecera → Día x=${hDia.x.toFixed(1)} · Hora x=${hHora.x.toFixed(1)} · Buque x=${hBuque.x.toFixed(1)} · Naviera x=${hNaviera.x.toFixed(1)} · PAX x=${hPax.x.toFixed(1)} (y=${headerRow.y.toFixed(1)})`);
+        debugLines.push(`Filas por debajo de la cabecera detectadas: ${dataRows.length}`);
+        dataRows.slice(0, 4).forEach((r, i) => {
+          const itemsTxt = r.items.map(it => `"${it.str}"@x${it.x.toFixed(1)}`).join(' | ');
+          debugLines.push(`Fila ${i+1} (y=${r.y.toFixed(1)}): ${itemsTxt}`);
+        });
         statusEl.style.color = '#B23A29';
         statusEl.textContent = 'No se ha podido extraer ningún crucero del PDF. Revisa que sea el formato habitual (tabla Día/Hora/Buque/Naviera/PAX) o pega los datos a mano.';
+        const dbg = document.createElement('pre');
+        dbg.id = 'pdfImportDebug';
+        dbg.style.cssText = 'white-space:pre-wrap; font-size:10.5px; background:#fff; border:1px solid var(--line); border-radius:6px; padding:8px; margin-top:6px; max-height:220px; overflow:auto;';
+        dbg.textContent = debugLines.join('\n');
+        const oldDbg = document.getElementById('pdfImportDebug');
+        if(oldDbg) oldDbg.remove();
+        statusEl.insertAdjacentElement('afterend', dbg);
         return;
       }
 

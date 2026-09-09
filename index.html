@@ -654,6 +654,20 @@
   .poster-modal-close:hover{ background:var(--brick-dark); }
   .poster-clickable{ cursor:zoom-in; }
 
+  /* ===== Galería de fotos (flechas grandes + swipe) ===== */
+  #galleryModal .poster-modal-inner{ overflow-y:auto; }
+  .gallery-arrow{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:44px; height:44px; border-radius:50%;
+    background:rgba(10,15,20,0.55); color:#fff; border:2px solid rgba(255,255,255,0.6);
+    font-size:20px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; z-index:2; touch-action:manipulation;
+  }
+  .gallery-arrow:hover{ background:rgba(10,15,20,0.8); }
+  .gallery-arrow.prev{ left:6px; }
+  .gallery-arrow.next{ right:6px; }
+  .gallery-photo-wrap{ position:relative; touch-action:pan-y; }
+
   /* ===== Modal de login de administrador ===== */
   .admin-login-inner{
     max-width:min(360px, 92vw);
@@ -996,7 +1010,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.7 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.8 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1827,12 +1841,14 @@
 <div class="poster-modal" id="galleryModal" onclick="if(event.target===this) closeGalleryModal()">
   <div class="poster-modal-inner" style="position:relative;">
     <button class="poster-modal-close" onclick="closeGalleryModal()">✕</button>
-    <img id="galleryModalImg" src="" alt="Foto interior" style="height:auto; max-height:60vh;">
+    <div class="gallery-photo-wrap" id="galleryPhotoWrap">
+      <button class="gallery-arrow prev" type="button" onclick="galleryModalNav(-1)" aria-label="Foto anterior">‹</button>
+      <img id="galleryModalImg" src="" alt="Foto interior" style="height:auto; max-height:60vh;">
+      <button class="gallery-arrow next" type="button" onclick="galleryModalNav(1)" aria-label="Foto siguiente">›</button>
+    </div>
     <div class="poster-modal-caption" id="galleryModalCaption"></div>
-    <div style="display:flex; justify-content:space-between; padding:10px 4px 0;">
-      <button class="icon-btn" type="button" onclick="galleryModalNav(-1)">‹ Anterior</button>
-      <span id="galleryModalCounter" style="align-self:center; font-size:12.5px; color:var(--navy-deep);"></span>
-      <button class="icon-btn" type="button" onclick="galleryModalNav(1)">Siguiente ›</button>
+    <div style="text-align:center; padding-top:6px;">
+      <span id="galleryModalCounter" style="font-size:12.5px; color:var(--navy-deep);"></span>
     </div>
   </div>
 </div>
@@ -4244,6 +4260,8 @@
     document.getElementById('galleryModalImg').src = galleryPhotos[galleryIndex];
     document.getElementById('galleryModalCaption').textContent = galleryShopName;
     document.getElementById('galleryModalCounter').textContent = (galleryIndex+1) + ' / ' + galleryPhotos.length;
+    const multi = galleryPhotos.length > 1;
+    document.querySelectorAll('#galleryModal .gallery-arrow').forEach(btn => btn.style.display = multi ? 'flex' : 'none');
   }
 
   function galleryModalNav(delta){
@@ -4254,6 +4272,28 @@
   function closeGalleryModal(){
     document.getElementById('galleryModal').classList.remove('open');
   }
+
+  // Deslizar con el dedo para pasar de foto en la galería
+  (function setupGallerySwipe(){
+    const wrap = document.getElementById('galleryPhotoWrap');
+    if(!wrap) return;
+    let touchStartX = null;
+    wrap.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].clientX; }, { passive:true });
+    wrap.addEventListener('touchend', e => {
+      if(touchStartX === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      touchStartX = null;
+      if(Math.abs(dx) < 40) return;
+      galleryModalNav(dx < 0 ? 1 : -1);
+    }, { passive:true });
+  })();
+
+  document.addEventListener('keydown', e => {
+    if(!document.getElementById('galleryModal').classList.contains('open')) return;
+    if(e.key === 'ArrowRight') galleryModalNav(1);
+    if(e.key === 'ArrowLeft') galleryModalNav(-1);
+    if(e.key === 'Escape') closeGalleryModal();
+  });
 
   function openNewsModal(id){
     const n = news.find(x => x.id === id);

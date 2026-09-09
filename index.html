@@ -1781,6 +1781,8 @@
       <div class="field"><label>Contraseña</label><input type="password" id="adminLoginPassword" autocomplete="current-password" required></div>
       <p id="adminLoginError" style="display:none; color:var(--brick); font-size:12.5px; margin:0 0 10px;">Correo o contraseña incorrectos.</p>
       <button class="btn" type="submit" style="width:100%;">Entrar</button>
+      <p style="margin:12px 0 0; text-align:center;"><a href="#" onclick="return sendForgotPasswordEmail()" style="font-size:12.5px; color:var(--teal-deep);">¿Olvidaste tu contraseña?</a></p>
+      <p id="adminForgotStatus" style="display:none; margin:8px 0 0; font-size:12.5px; color:var(--teal-deep); text-align:center;"></p>
     </form>
   </div>
 </div>
@@ -1797,7 +1799,7 @@
 <div class="poster-modal" id="galleryModal" onclick="if(event.target===this) closeGalleryModal()">
   <div class="poster-modal-inner" style="position:relative;">
     <button class="poster-modal-close" onclick="closeGalleryModal()">✕</button>
-    <img id="galleryModalImg" src="" alt="Foto interior">
+    <img id="galleryModalImg" src="" alt="Foto interior" style="height:auto; max-height:60vh;">
     <div class="poster-modal-caption" id="galleryModalCaption"></div>
     <div style="display:flex; justify-content:space-between; padding:10px 4px 0;">
       <button class="icon-btn" type="button" onclick="galleryModalNav(-1)">‹ Anterior</button>
@@ -3710,6 +3712,8 @@
     document.getElementById('adminLoginError').style.display = 'none';
     document.getElementById('adminLoginEmail').value = '';
     document.getElementById('adminLoginPassword').value = '';
+    const forgotStatus = document.getElementById('adminForgotStatus');
+    if(forgotStatus){ forgotStatus.style.display = 'none'; forgotStatus.textContent = ''; }
     document.getElementById('adminLoginModal').classList.add('open');
     setTimeout(() => document.getElementById('adminLoginEmail').focus(), 50);
   }
@@ -3737,6 +3741,32 @@
       errorEl.style.display = 'block';
     } finally {
       btn.disabled = false; btn.textContent = 'Entrar';
+    }
+    return false;
+  }
+
+  async function sendForgotPasswordEmail(){
+    const email = document.getElementById('adminLoginEmail').value.trim();
+    const status = document.getElementById('adminForgotStatus');
+    if(!email){
+      alert('Escribe primero tu correo en el campo de arriba, y luego pulsa "¿Olvidaste tu contraseña?".');
+      return false;
+    }
+    status.style.display = 'block';
+    status.textContent = 'Enviando...';
+    try{
+      await sendPasswordResetEmail(auth, email);
+      status.textContent = '✓ Te hemos enviado un correo a ' + email + ' para que elijas una contraseña nueva.';
+    } catch(err){
+      console.error(err);
+      // Por seguridad, Firebase a veces no distingue si el correo existe o
+      // no — mostramos siempre el mismo mensaje de éxito genérico salvo
+      // errores claros de formato.
+      if(err.code === 'auth/invalid-email'){
+        status.textContent = 'Ese correo no parece válido, revísalo.';
+      } else {
+        status.textContent = '✓ Si ese correo tiene una cuenta, te llegará un mensaje para elegir una contraseña nueva.';
+      }
     }
     return false;
   }
@@ -6192,7 +6222,7 @@
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
     renderAll,
-    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
+    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,

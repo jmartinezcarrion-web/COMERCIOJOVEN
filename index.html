@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.20 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.21 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -4463,14 +4463,44 @@
     document.getElementById('newOfferPhotoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto de la oferta" style="width:100%; border-radius:6px; display:block;">`;
   }
 
+  // Añade otra fila de concepto+precio al formulario de ofertas (cliente o
+  // socios) — así se pueden publicar varios conceptos de una vez (ej. una
+  // peluquería: Corte 15€, Tinte 40€, Mechas 60€...) compartiendo fecha y foto.
+  function addOfferConceptRow(containerId){
+    const container = document.getElementById(containerId);
+    if(!container) return;
+    const row = document.createElement('div');
+    row.className = 'offer-row';
+    row.style.cssText = 'display:flex; gap:8px; align-items:center;';
+    row.innerHTML = `
+      <input type="text" class="offerRowConcept" placeholder="Concepto">
+      <input type="text" class="offerRowPrice" placeholder="Precio" style="max-width:120px;">
+      <button type="button" onclick="this.parentElement.remove()" style="background:none; border:none; color:var(--brick); font-size:16px; cursor:pointer; padding:2px 6px;" title="Quitar esta fila">✕</button>`;
+    row.querySelector('.offerRowConcept').style.flex = '2';
+    row.querySelector('.offerRowPrice').style.flex = '1';
+    container.appendChild(row);
+  }
+
+  function readOfferConceptRows(containerId){
+    return [...document.querySelectorAll(`#${containerId} .offer-row`)]
+      .map(row => ({ title: row.querySelector('.offerRowConcept').value.trim(), price: row.querySelector('.offerRowPrice').value.trim() }))
+      .filter(r => r.title);
+  }
+
+  function resetOfferConceptRows(containerId, placeholderConcept, placeholderPrice){
+    document.getElementById(containerId).innerHTML = `
+      <div class="offer-row" style="display:flex; gap:8px;">
+        <input type="text" class="offerRowConcept" placeholder="${placeholderConcept}" style="flex:2;">
+        <input type="text" class="offerRowPrice" placeholder="${placeholderPrice}" style="flex:1;">
+      </div>`;
+  }
+
   async function addShopOffer(shopId){
-    const titleEl = document.getElementById('newOfferTitle');
-    const priceEl = document.getElementById('newOfferPrice');
+    const rows = readOfferConceptRows('newOfferRows');
+    if(rows.length === 0){ alert('Añade al menos un concepto con su precio.'); return; }
     const startDateEl = document.getElementById('newOfferStartDate');
     const endDateEl = document.getElementById('newOfferEndDate');
     const unitLimitEl = document.getElementById('newOfferUnitLimit');
-    const title = titleEl.value.trim();
-    if(!title){ alert('Ponle un título a la oferta.'); return; }
     if(!startDateEl.value || !endDateEl.value){ alert('Toda oferta necesita fecha de inicio y fecha de fin.'); return; }
     if(endDateEl.value < startDateEl.value){ alert('La fecha fin no puede ser anterior a la fecha de inicio.'); return; }
     const s = shops.find(x => x.id === shopId);
@@ -4487,18 +4517,20 @@
         return;
       }
     }
-    const offer = {
-      id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-      title,
-      price: priceEl.value.trim(),
-      image,
+    const unitLimit = unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null;
+    const newOffers = rows.map((r, i) => ({
+      id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6) + i,
+      title: r.title,
+      price: r.price,
+      image: i === 0 ? image : null,
       startDate: startDateEl.value,
       endDate: endDateEl.value,
-      unitLimit: unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null
-    };
+      unitLimit
+    }));
     try{
-      await updateDoc(doc(db,'shops', shopId), { offers: [...(s.offers || []), offer] });
-      titleEl.value = ''; priceEl.value = ''; startDateEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
+      await updateDoc(doc(db,'shops', shopId), { offers: [...(s.offers || []), ...newOffers] });
+      resetOfferConceptRows('newOfferRows', 'Concepto (ej: Corte de pelo)', 'Precio (ej: 15€)');
+      startDateEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
       pendingNewOfferPhotoFile = null;
       document.getElementById('newOfferPhotoInput').value = '';
       document.getElementById('newOfferPhotoPreview').innerHTML = '';
@@ -4531,13 +4563,11 @@
   }
 
   async function addShopSocioOffer(shopId){
-    const titleEl = document.getElementById('newSocioOfferTitle');
-    const priceEl = document.getElementById('newSocioOfferPrice');
+    const rows = readOfferConceptRows('newSocioOfferRows');
+    if(rows.length === 0){ alert('Añade al menos un concepto con su precio.'); return; }
     const startDateEl = document.getElementById('newSocioOfferStartDate');
     const endDateEl = document.getElementById('newSocioOfferEndDate');
     const unitLimitEl = document.getElementById('newSocioOfferUnitLimit');
-    const title = titleEl.value.trim();
-    if(!title){ alert('Ponle un título a la oferta.'); return; }
     if(!startDateEl.value || !endDateEl.value){ alert('Toda oferta necesita fecha de inicio y fecha de fin.'); return; }
     if(endDateEl.value < startDateEl.value){ alert('La fecha fin no puede ser anterior a la fecha de inicio.'); return; }
     const s = shops.find(x => x.id === shopId);
@@ -4554,18 +4584,20 @@
         return;
       }
     }
-    const offer = {
-      id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-      title,
-      price: priceEl.value.trim(),
-      image,
+    const unitLimit = unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null;
+    const newOffers = rows.map((r, i) => ({
+      id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6) + i,
+      title: r.title,
+      price: r.price,
+      image: i === 0 ? image : null,
       startDate: startDateEl.value,
       endDate: endDateEl.value,
-      unitLimit: unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null
-    };
+      unitLimit
+    }));
     try{
-      await updateDoc(doc(db,'shops', shopId), { socioOffers: [...(s.socioOffers || []), offer] });
-      titleEl.value = ''; priceEl.value = ''; startDateEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
+      await updateDoc(doc(db,'shops', shopId), { socioOffers: [...(s.socioOffers || []), ...newOffers] });
+      resetOfferConceptRows('newSocioOfferRows', 'Concepto (ej: 10% en corte)', 'Precio o descuento');
+      startDateEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
       pendingNewSocioOfferPhotoFile = null;
       document.getElementById('newSocioOfferPhotoInput').value = '';
       document.getElementById('newSocioOfferPhotoPreview').innerHTML = '';
@@ -5492,8 +5524,8 @@
       </div>
 
       <div class="card" style="margin-top:16px;">
-        <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">🏷️ Ofertas de tu comercio</h3>
-        <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Los clientes las verán al pinchar en tu comercio en el directorio. Cada oferta se guarda al pulsar "Añadir oferta", sin necesidad de tocar el botón de arriba.</p>
+        <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">🏷️ Ofertas para todos los clientes</h3>
+        <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Los clientes las verán al pinchar en tu comercio en el directorio. Añade uno o varios conceptos con su precio (ej. una peluquería puede poner "Corte 15€", "Tinte 40€", "Mechas 60€"...) — comparten fecha, foto y tope de unidades.</p>
         <div id="miComercioOffersList">
           ${(s.offers && s.offers.length) ? s.offers.map(o => `
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
@@ -5508,10 +5540,16 @@
             </div>`).join('') : '<p class="collab-empty">Todavía no has añadido ninguna oferta.</p>'}
         </div>
         <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); display:grid; gap:10px;">
-          <input type="text" id="newOfferTitle" placeholder="Título de la oferta (ej: 2x1 en cafés)">
-          <input type="text" id="newOfferPrice" placeholder="Precio (ej: 4,50€ o Gratis)">
+          <label style="font-size:11px; color:var(--navy-deep); margin-bottom:-4px;">Conceptos y precios</label>
+          <div id="newOfferRows" style="display:grid; gap:8px;">
+            <div class="offer-row" style="display:flex; gap:8px;">
+              <input type="text" class="offerRowConcept" placeholder="Concepto (ej: Corte de pelo)" style="flex:2;">
+              <input type="text" class="offerRowPrice" placeholder="Precio (ej: 15€)" style="flex:1;">
+            </div>
+          </div>
+          <button class="icon-btn" type="button" onclick="addOfferConceptRow('newOfferRows')" style="justify-self:start;">+ Añadir otro concepto</button>
           <div>
-            <label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Foto (opcional)</label>
+            <label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Foto (opcional, compartida por todos los conceptos de arriba)</label>
             <input type="file" accept="image/*" id="newOfferPhotoInput" onchange="previewNewOfferPhoto(event)">
             <div id="newOfferPhotoPreview" style="margin-top:6px; max-width:140px;"></div>
           </div>
@@ -5520,13 +5558,13 @@
             <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha fin *</label><input type="date" id="newOfferEndDate" style="width:100%;"></div>
           </div>
           <div><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Tope de unidades (opcional)</label><input type="number" id="newOfferUnitLimit" min="1" style="width:100%;"></div>
-          <button class="btn" type="button" onclick="addShopOffer('${s.id}')">+ Añadir oferta</button>
+          <button class="btn" type="button" onclick="addShopOffer('${s.id}')">+ Publicar oferta(s)</button>
         </div>
       </div>
 
       <div class="card" style="margin-top:16px;">
         <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">🤝 Ofertas para otros socios</h3>
-        <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Solo las ven otros comercios asociados y la administración, en "Ofertas socios" — nunca el público general ni tu ficha pública del directorio.</p>
+        <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Solo las ven otros comercios asociados y la administración, en "Ofertas socios" — nunca el público general ni tu ficha pública del directorio. Igual que arriba, puedes añadir varios conceptos con su precio de una vez.</p>
         <div id="miComercioSocioOffersList">
           ${(s.socioOffers && s.socioOffers.length) ? s.socioOffers.map(o => `
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
@@ -5541,10 +5579,16 @@
             </div>`).join('') : '<p class="collab-empty">Todavía no has añadido ninguna oferta para socios.</p>'}
         </div>
         <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); display:grid; gap:10px;">
-          <input type="text" id="newSocioOfferTitle" placeholder="Título de la oferta (ej: 10% si traes tique de otro socio)">
-          <input type="text" id="newSocioOfferPrice" placeholder="Precio o descuento (opcional)">
+          <label style="font-size:11px; color:var(--navy-deep); margin-bottom:-4px;">Conceptos y precios</label>
+          <div id="newSocioOfferRows" style="display:grid; gap:8px;">
+            <div class="offer-row" style="display:flex; gap:8px;">
+              <input type="text" class="offerRowConcept" placeholder="Concepto (ej: 10% en corte)" style="flex:2;">
+              <input type="text" class="offerRowPrice" placeholder="Precio o descuento" style="flex:1;">
+            </div>
+          </div>
+          <button class="icon-btn" type="button" onclick="addOfferConceptRow('newSocioOfferRows')" style="justify-self:start;">+ Añadir otro concepto</button>
           <div>
-            <label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Foto (opcional)</label>
+            <label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Foto (opcional, compartida por todos los conceptos de arriba)</label>
             <input type="file" accept="image/*" id="newSocioOfferPhotoInput" onchange="previewNewSocioOfferPhoto(event)">
             <div id="newSocioOfferPhotoPreview" style="margin-top:6px; max-width:140px;"></div>
           </div>
@@ -5553,7 +5597,7 @@
             <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha fin *</label><input type="date" id="newSocioOfferEndDate" style="width:100%;"></div>
           </div>
           <div><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Tope de unidades (opcional)</label><input type="number" id="newSocioOfferUnitLimit" min="1" style="width:100%;"></div>
-          <button class="btn" type="button" onclick="addShopSocioOffer('${s.id}')">+ Añadir oferta</button>
+          <button class="btn" type="button" onclick="addShopSocioOffer('${s.id}')">+ Publicar oferta(s)</button>
         </div>
       </div>`;
   }
@@ -6716,9 +6760,9 @@
         ${isAdmin ? `<button class="shop-delete" onclick="deleteShopSocioOffer('${o.shopId}', '${o.id}')" title="Eliminar oferta">✕</button>` : ''}
         ${o.image ? `<img src="${o.image}" alt="Foto de la oferta de ${o.shopName}" class="photo" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(o.title)}'), decodeURIComponent('${encodeURIComponent(o.shopName)}'))">` : '<div class="noimg"></div>'}
         <div class="body">
-          <span class="date">${o.shopName}${o.endDate ? ' · Hasta ' + fmtDate(o.endDate) : ''}</span>
+          <span class="date" style="font-weight:700; color:var(--navy); text-transform:none; letter-spacing:0; font-size:12.5px;">🏪 ${o.shopName}</span>
           <h4>${o.title}</h4>
-          <p>${o.price || ''}</p>
+          <p>${o.price ? o.price + (o.endDate ? ' · ' : '') : ''}${o.endDate ? 'Válida hasta ' + fmtDate(o.endDate) : ''}</p>
         </div>
       </div>`).join('') : '<p class="collab-empty">Todavía no hay ofertas publicadas. ¡Añade las tuyas desde "Mi comercio"!</p>';
   }
@@ -6951,7 +6995,7 @@
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
     previewNewsProposalImage, submitNewsProposal, selectNewsType, cancelNewsProposalType, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
-    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openShopDetail, addShopOffer, deleteShopOffer, previewNewOfferPhoto, addShopSocioOffer, deleteShopSocioOffer, previewNewSocioOfferPhoto, openNewsModal, closeNewsModal,
+    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openShopDetail, addOfferConceptRow, addShopOffer, deleteShopOffer, previewNewOfferPhoto, addShopSocioOffer, deleteShopSocioOffer, previewNewSocioOfferPhoto, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,
     handleUploadTicket, submitSurpriseIdentity, saveSurpriseSettings, markSurprisePrizeClaimed, resetSurpriseSeason,
     addSurpriseStepRow, removeSurpriseStep, updateSurpriseStep,

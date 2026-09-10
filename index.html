@@ -1025,7 +1025,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.12 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.13 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1158,7 +1158,7 @@
     </div>
 
     <div class="admin-panel" id="activityAdminPanel" style="display:none">
-      <span class="tag">⚙ Añadir actividad (administrador)</span>
+      <span class="tag" id="actFormTag">⚙ Añadir actividad (administrador)</span>
       <form onsubmit="return addActivity(event)">
         <div class="logo-upload">
           <div class="logo-preview" id="actPosterPreview"><span>Sin cartel</span></div>
@@ -1169,6 +1169,7 @@
         </div>
         <div class="field"><label>Nombre de la actividad</label><input type="text" id="actTitle" required placeholder="Ej: Mercadillo de artesanía"></div>
         <div class="field"><label>Fecha</label><input type="date" id="actDate" required></div>
+        <div class="field"><label>Fecha fin (opcional, si dura varios días)</label><input type="date" id="actEndDate"></div>
         <div class="field"><label>Descripción</label><textarea id="actDesc" required placeholder="Describe la actividad..."></textarea></div>
         <div class="field">
           <label>¿Dónde quieres publicarla?</label>
@@ -1188,7 +1189,8 @@
             <option value="socios">Socios</option>
           </select>
         </div>
-        <button class="btn" type="submit">Publicar actividad</button>
+        <button class="btn" type="submit" id="actSubmitBtn">Publicar actividad</button>
+        <button class="icon-btn" type="button" onclick="cancelEditActivity()" id="actCancelEditBtn" style="display:none; margin-left:8px;">Cancelar edición</button>
       </form>
     </div>
 
@@ -4368,40 +4370,93 @@
     document.getElementById('actPosterPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Cartel">`;
   }
 
+  let editingActivityId = null;
+
   async function addActivity(e){
     e.preventDefault();
     const title = document.getElementById('actTitle').value;
     const date = document.getElementById('actDate').value;
+    const endDate = document.getElementById('actEndDate').value || '';
     const desc = document.getElementById('actDesc').value;
     const showInicio = document.getElementById('actShowInicio').checked;
     const showActividades = document.getElementById('actShowActividades').checked;
     const audience = document.getElementById('actAudience').value;
+    if(endDate && endDate < date){
+      alert('La fecha fin no puede ser anterior a la fecha de inicio.');
+      return false;
+    }
     if(!showInicio && !showActividades){
       alert('Elige al menos un sitio donde publicar la actividad (Inicio o Actividades).');
       return false;
     }
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.disabled = true; btn.textContent = 'Publicando...';
+    const isEditing = !!editingActivityId;
+    const btn = document.getElementById('actSubmitBtn');
+    btn.disabled = true; btn.textContent = isEditing ? 'Guardando...' : 'Publicando...';
     try{
-      let posterUrl = null;
+      let posterUrl = isEditing ? (activities.find(a => a.id === editingActivityId)?.poster || null) : null;
       if(pendingActPosterFile){
         const fileRef = ref(storage, `posters/${Date.now()}_${pendingActPosterFile.name}`);
         await uploadBytes(fileRef, pendingActPosterFile);
         posterUrl = await getDownloadURL(fileRef);
       }
-      await addDoc(collection(db,'activities'), { title, date, desc, poster: posterUrl, showInicio, showActividades, audience });
-      pendingActPosterFile = null;
-      e.target.reset();
-      document.getElementById('actPosterPreview').innerHTML = '<span>Sin cartel</span>';
-      document.getElementById('actShowInicio').checked = true;
-      document.getElementById('actShowActividades').checked = true;
+      const payload = { title, date, endDate, desc, poster: posterUrl, showInicio, showActividades, audience };
+      if(isEditing){
+        await updateDoc(doc(db,'activities', editingActivityId), payload);
+      } else {
+        await addDoc(collection(db,'activities'), payload);
+      }
+      cancelEditActivity();
     } catch(err){
-      alert('No se pudo publicar la actividad. Revisa la conexión o los permisos de Storage/Firestore.');
+      alert('No se pudo guardar la actividad. Revisa la conexión o los permisos de Storage/Firestore.');
       console.error(err);
     } finally {
-      btn.disabled = false; btn.textContent = 'Publicar actividad';
+      btn.disabled = false;
     }
     return false;
+  }
+
+  function editActivity(id){
+    const a = activities.find(x => x.id === id);
+    if(!a) return;
+    editingActivityId = id;
+    pendingActPosterFile = null;
+    document.getElementById('actTitle').value = a.title || '';
+    document.getElementById('actDate').value = a.date || '';
+    document.getElementById('actEndDate').value = a.endDate || '';
+    document.getElementById('actDesc').value = a.desc || '';
+    document.getElementById('actShowInicio').checked = a.showInicio !== false;
+    document.getElementById('actShowActividades').checked = a.showActividades !== false;
+    document.getElementById('actAudience').value = a.audience === 'socios' ? 'socios' : 'todos';
+    document.getElementById('actPosterPreview').innerHTML = a.poster ? `<img src="${a.poster}" alt="Cartel actual">` : '<span>Sin cartel</span>';
+    document.getElementById('actFormTag').textContent = '⚙ Editar actividad (administrador)';
+    document.getElementById('actSubmitBtn').textContent = 'Guardar cambios';
+    document.getElementById('actCancelEditBtn').style.display = '';
+    showView('actividades', document.querySelector('#navTabs button[onclick*=actividades]'));
+    document.getElementById('activityAdminPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function cancelEditActivity(){
+    editingActivityId = null;
+    pendingActPosterFile = null;
+    const form = document.getElementById('activityAdminPanel').querySelector('form');
+    if(form) form.reset();
+    document.getElementById('actPosterPreview').innerHTML = '<span>Sin cartel</span>';
+    document.getElementById('actShowInicio').checked = true;
+    document.getElementById('actShowActividades').checked = true;
+    document.getElementById('actFormTag').textContent = '⚙ Añadir actividad (administrador)';
+    document.getElementById('actSubmitBtn').textContent = 'Publicar actividad';
+    document.getElementById('actCancelEditBtn').style.display = 'none';
+  }
+
+  async function deleteActivity(id){
+    if(!confirm('¿Eliminar esta actividad?')) return;
+    try{
+      await deleteDoc(doc(db,'activities', id));
+      if(editingActivityId === id) cancelEditActivity();
+    } catch(err){
+      alert('No se pudo eliminar la actividad.');
+      console.error(err);
+    }
   }
 
   function openShopMap(query){
@@ -5930,8 +5985,8 @@
 
   // Pendientes primero (más próxima arriba), pasadas al final (más reciente arriba de las pasadas)
   function sortActivitiesPendingFirst(list){
-    const pending = list.filter(a => daysUntil(a.date) >= 0).sort((a,b)=> a.date.localeCompare(b.date));
-    const past = list.filter(a => daysUntil(a.date) < 0).sort((a,b)=> b.date.localeCompare(a.date));
+    const pending = list.filter(a => daysUntil(a.endDate || a.date) >= 0).sort((a,b)=> a.date.localeCompare(b.date));
+    const past = list.filter(a => daysUntil(a.endDate || a.date) < 0).sort((a,b)=> b.date.localeCompare(a.date));
     return [...pending, ...past];
   }
 
@@ -6112,15 +6167,22 @@
     // Actividades
     const visibleActivities = activities.filter(visibleToCurrentUser);
     const actividadesTab = visibleActivities.filter(a => a.showActividades);
-    const actividadesFuturas = actividadesTab.filter(a => daysUntil(a.date) >= 0).sort((a,b)=> a.date.localeCompare(b.date));
-    const actividadesPasadas = actividadesTab.filter(a => daysUntil(a.date) < 0).sort((a,b)=> b.date.localeCompare(a.date));
+    const actEffectiveEnd = a => a.endDate || a.date;
+    const actividadesFuturas = actividadesTab.filter(a => daysUntil(actEffectiveEnd(a)) >= 0).sort((a,b)=> a.date.localeCompare(b.date));
+    const actividadesPasadas = actividadesTab.filter(a => daysUntil(actEffectiveEnd(a)) < 0).sort((a,b)=> b.date.localeCompare(a.date));
     document.getElementById('activityCount').textContent = actividadesTab.length + ' programadas';
 
+    const actDateLabel = a => (a.endDate && a.endDate !== a.date) ? `${fmtDate(a.date)} – ${fmtDate(a.endDate)}` : fmtDate(a.date);
+
     const renderActCard = (a, isPast) => `
-      <div class="activity-card">
-        ${a.poster ? `<img src="${a.poster}" alt="Cartel de ${a.title}" class="poster-clickable" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(a.title)}'), '${fmtDate(a.date)}')" style="width:100%; height:150px; object-fit:cover; display:block;">` : '<div class="band"></div>'}
+      <div class="activity-card" style="position:relative;">
+        ${isAdmin ? `<div style="position:absolute; top:8px; right:8px; z-index:2; display:flex; gap:6px;">
+          <button onclick="editActivity('${a.id}')" title="Editar actividad" style="width:24px; height:24px; border-radius:50%; border:none; background:rgba(22,35,46,0.55); color:#fff; font-size:11px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer;">✏️</button>
+          <button onclick="deleteActivity('${a.id}')" title="Eliminar actividad" style="width:24px; height:24px; border-radius:50%; border:none; background:rgba(22,35,46,0.55); color:#fff; font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer;">✕</button>
+        </div>` : ''}
+        ${a.poster ? `<img src="${a.poster}" alt="Cartel de ${a.title}" class="poster-clickable" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(a.title)}'), '${actDateLabel(a)}')" style="width:100%; height:150px; object-fit:cover; display:block;">` : '<div class="band"></div>'}
         <div class="body">
-          <span class="date">${fmtDate(a.date)}</span>
+          <span class="date">${actDateLabel(a)}</span>
           ${isPast ? `<span class="activity-badge-past">Finalizada</span>` : ''}
           ${a.audience === 'socios' ? `<span class="badge al-dia" style="margin-left:6px;">Solo socios</span>` : ''}
           <h4>${a.title}</h4>
@@ -6551,7 +6613,7 @@
   // hace falta exponer explícitamente las funciones que usan los onclick/onchange del HTML.
   Object.assign(window, {
     renderAll,
-    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, extractCruisesFromPdf, clearAllCruises, deleteCruise, addActivity, previewActivityPoster,
+    showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, extractCruisesFromPdf, clearAllCruises, deleteCruise, addActivity, editActivity, cancelEditActivity, deleteActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
     addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,

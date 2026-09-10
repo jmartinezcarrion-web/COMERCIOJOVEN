@@ -1034,7 +1034,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.16 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.17 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -6478,11 +6478,6 @@
       .sort((a,b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity:'base' }));
     document.getElementById('shopsCount').textContent = visibleShops.length + ' asociados';
     document.getElementById('shopsGrid').innerHTML = visibleShops.map((s) => {
-      const mapQuery = s.address ? s.address : `${s.name}, Cartagena`;
-      const websiteUrl = s.website ? (/^https?:\/\//i.test(s.website) ? s.website : 'https://' + s.website) : null;
-      const instagramUrl = s.instagram ? (/^https?:\/\//i.test(s.instagram) ? s.instagram : 'https://instagram.com/' + s.instagram.replace(/^@/,'').replace(/^instagram\.com\//i,'')) : null;
-      const facebookUrl = s.facebook ? (/^https?:\/\//i.test(s.facebook) ? s.facebook : 'https://' + s.facebook.replace(/^facebook\.com\//i,'facebook.com/')) : null;
-      const onlineSalesUrl = s.onlineSalesUrl ? (/^https?:\/\//i.test(s.onlineSalesUrl) ? s.onlineSalesUrl : 'https://' + s.onlineSalesUrl) : null;
       return `
       <div class="shop-card" onclick="openShopDetail('${s.id}')" title="Ver ficha del comercio">
         ${isAdmin ? `<button class="shop-delete" onclick="event.stopPropagation(); deleteShop('${s.id}')" title="Eliminar comercio">✕</button>` : ''}
@@ -6493,20 +6488,7 @@
         </div>
         <div class="body">
           <h4>${s.name} ${s.audience === 'socios' ? `<span class="badge al-dia" style="font-size:9px; padding:2px 6px; vertical-align:middle;">Socios</span>` : ''} ${s.onlineSales ? `<span class="badge" style="font-size:9px; padding:2px 6px; vertical-align:middle; background:var(--teal); color:#fff;">🛒 Venta online</span>` : ''}</h4>
-          <span class="cat">${s.cat}</span>
-          ${s.address ? `<div style="margin:4px 0 0; font-size:12.5px; color:var(--navy-deep);">📍 ${s.address}</div>` : ''}
-          ${isAdmin && (s.contactName || s.contactPhone) ? `<div style="margin:4px 0 0; font-size:11.5px; color:#123024; overflow-wrap:anywhere;">🔒 <span title="Solo lo ves tú como administrador, nunca los clientes">${s.contactName || 'Sin nombre'}${s.contactPhone ? ' · 📞 ' + s.contactPhone : ''} (privado)</span></div>` : ''}
-          ${s.phone || websiteUrl || instagramUrl || facebookUrl || onlineSalesUrl ? `<div class="shop-links">
-            ${s.phone ? `<a href="tel:${s.phone.replace(/\s+/g,'')}" onclick="event.stopPropagation()" title="Llamar">📞 ${s.phone}</a>` : ''}
-            ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Visitar web">🌐 Web</a>` : ''}
-            ${instagramUrl ? `<a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Instagram">📷 Instagram</a>` : ''}
-            ${facebookUrl ? `<a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Facebook">📘 Facebook</a>` : ''}
-            ${onlineSalesUrl ? `<a href="${onlineSalesUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Comprar online">🛒 Comprar online</a>` : ''}
-          </div>` : ''}
-          ${s.interiorPhotos && s.interiorPhotos.length ? `<div style="display:flex; gap:6px; margin-top:10px;">
-            ${s.interiorPhotos.slice(0,4).map((url, i) => `<img src="${url}" alt="Foto interior de ${s.name}" onclick="event.stopPropagation(); openGalleryModal('${s.id}', ${i})" style="width:52px; height:52px; object-fit:cover; border-radius:6px; cursor:pointer;">`).join('')}
-          </div>` : ''}
-          <span class="map-hint" onclick="event.stopPropagation(); openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))" title="Ver en Google Maps">📍 Cómo llegar</span>
+          <button class="btn" type="button" onclick="event.stopPropagation(); openShopDetail('${s.id}')" style="width:100%; margin-top:10px;">Descubre más</button>
         </div>
       </div>`;
     }).join('');

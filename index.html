@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.23 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.24 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -3194,6 +3194,22 @@
     return false;
   }
 
+  // Nº de comercios distintos en los que un cliente ha enviado al menos un
+  // tique — cuenta como segundo criterio del ranking, junto al importe.
+  function fidelidadShopVariety(c){
+    const ids = new Set(Object.values(c.tickets || {}).map(t => t.shopId));
+    return ids.size;
+  }
+  // Orden del ranking: primero quien haya comprado en más comercios distintos
+  // (variedad), y a igualdad de comercios, quien más haya gastado en total.
+  function sortFidelidadRanking(list){
+    return [...list].sort((a,b) => {
+      const varietyDiff = fidelidadShopVariety(b) - fidelidadShopVariety(a);
+      if(varietyDiff !== 0) return varietyDiff;
+      return (b.totalAmount||0) - (a.totalAmount||0);
+    });
+  }
+
   async function submitFidelidadTicket(shopId){
     const fileInput = document.getElementById('fidelidadTicketInput');
     const amountInput = document.getElementById('fidelidadAmountInput');
@@ -3234,12 +3250,13 @@
 
   async function declareFidelidadWinner(){
     if(fidelidadAllCustomers.length === 0){ alert('Todavía no hay ningún cliente participando.'); return; }
-    const sorted = [...fidelidadAllCustomers].sort((a,b) => (b.totalAmount||0) - (a.totalAmount||0));
+    const sorted = sortFidelidadRanking(fidelidadAllCustomers);
     const winner = sorted[0];
-    if(!confirm(`¿Declarar a ${winner.name} (${(winner.totalAmount||0).toFixed(2)}€ acumulados) como cliente más fiel? Se mostrará como ganador en la página del concurso.`)) return;
+    const winnerVariety = fidelidadShopVariety(winner);
+    if(!confirm(`¿Declarar a ${winner.name} (${(winner.totalAmount||0).toFixed(2)}€ acumulados en ${winnerVariety} comercio${winnerVariety===1?'':'s'} distinto${winnerVariety===1?'':'s'}) como cliente más fiel? Se mostrará como ganador en la página del concurso.`)) return;
     try{
       await setDoc(doc(db,'settings','fidelidad'), {
-        winnerName: winner.name, winnerPhone: winner.phone, winnerTotal: winner.totalAmount || 0, winnerAt: serverTimestamp()
+        winnerName: winner.name, winnerPhone: winner.phone, winnerTotal: winner.totalAmount || 0, winnerVariety, winnerAt: serverTimestamp()
       }, { merge:true });
       alert('Ganador declarado.');
     } catch(err){
@@ -3254,7 +3271,7 @@
       for(const c of fidelidadAllCustomers){
         await deleteDoc(doc(db,'fidelidad_customers', c.id));
       }
-      await setDoc(doc(db,'settings','fidelidad'), { winnerName: null, winnerPhone: null, winnerTotal: null, winnerAt: null }, { merge:true });
+      await setDoc(doc(db,'settings','fidelidad'), { winnerName: null, winnerPhone: null, winnerTotal: null, winnerVariety: null, winnerAt: null }, { merge:true });
       alert('Temporada reiniciada. Ya puedes empezar una edición nueva de "Tu fidelidad tiene premio".');
     } catch(err){
       alert('No se pudo reiniciar la temporada. Revisa la conexión o los permisos de Firestore.');
@@ -3282,13 +3299,13 @@
         html += `
           <div class="passport-complete" style="background:linear-gradient(135deg, var(--teal-deep), var(--navy));">
             <h3 style="color:var(--gold);">🏆 Cliente más fiel: ${fidelidadSettings.winnerName}</h3>
-            <p>${(fidelidadSettings.winnerTotal||0).toFixed(2)}€ acumulados en compras. ${fidelidadSettings.rewardText || ''}</p>
+            <p>${(fidelidadSettings.winnerTotal||0).toFixed(2)}€ acumulados${fidelidadSettings.winnerVariety ? ` en ${fidelidadSettings.winnerVariety} comercio${fidelidadSettings.winnerVariety===1?'':'s'} distinto${fidelidadSettings.winnerVariety===1?'':'s'}` : ''}. ${fidelidadSettings.rewardText || ''}</p>
           </div>`;
       }
       html += `
         <div class="passport-intro">
-          <p><strong>¿Cómo funciona?</strong> ${fidelidadSettings.howItWorks || 'Cada vez que compres en un comercio asociado, escanea su QR con el botón de arriba, sube la foto del tique y escribe el importe. Al cerrarse el concurso, gana quien más haya gastado en total.'}</p>
-          ${fidelidadRecord ? `<div class="passport-count">${(fidelidadRecord.totalAmount||0).toFixed(2)}€ acumulados · ${fidelidadRecord.ticketCount||0} tique${fidelidadRecord.ticketCount === 1 ? '' : 's'} enviado${fidelidadRecord.ticketCount === 1 ? '' : 's'}</div>` : ''}
+          <p><strong>¿Cómo funciona?</strong> ${fidelidadSettings.howItWorks || 'Cada vez que compres en un comercio asociado, escanea su QR con el botón de arriba, sube la foto del tique y escribe el importe. Al cerrarse el concurso, gana quien haya comprado en más comercios distintos; a igualdad de comercios, quien más haya gastado en total.'}</p>
+          ${fidelidadRecord ? `<div class="passport-count">${(fidelidadRecord.totalAmount||0).toFixed(2)}€ acumulados · ${fidelidadRecord.ticketCount||0} tique${fidelidadRecord.ticketCount === 1 ? '' : 's'} enviado${fidelidadRecord.ticketCount === 1 ? '' : 's'} · ${fidelidadShopVariety(fidelidadRecord)} comercio${fidelidadShopVariety(fidelidadRecord)===1?'':'s'} distinto${fidelidadShopVariety(fidelidadRecord)===1?'':'s'}</div>` : ''}
         </div>`;
 
       if(pendingFidelidadShopId){
@@ -3337,12 +3354,13 @@
 
     const rankingEl = document.getElementById('fidelidadRankingList');
     if(rankingEl){
-      const sorted = [...fidelidadAllCustomers].sort((a,b) => (b.totalAmount||0) - (a.totalAmount||0));
+      const sorted = sortFidelidadRanking(fidelidadAllCustomers);
       rankingEl.innerHTML = sorted.length ? sorted.map((c, i) => {
         const tickets = Object.values(c.tickets || {}).sort((a,b) => (b.at||0) - (a.at||0));
+        const variety = fidelidadShopVariety(c);
         return `
         <div class="passport-customer-row" style="cursor:pointer;" onclick="toggleFidelidadCustomerTickets('${c.id}')">
-          <div class="who"><strong>#${i+1} · ${c.name}</strong><span>${c.phone} · ${(c.totalAmount||0).toFixed(2)}€ · ${c.ticketCount||0} tique${c.ticketCount === 1 ? '' : 's'}</span></div>
+          <div class="who"><strong>#${i+1} · ${c.name}</strong><span>${c.phone} · ${variety} comercio${variety===1?'':'s'} distinto${variety===1?'':'s'} · ${(c.totalAmount||0).toFixed(2)}€ · ${c.ticketCount||0} tique${c.ticketCount === 1 ? '' : 's'}</span></div>
         </div>
         <div id="fidelidadTickets-${c.id}" style="display:none; padding:0 0 14px 14px; margin-top:-8px;">
           ${tickets.map(t => `

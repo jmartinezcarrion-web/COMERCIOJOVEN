@@ -425,6 +425,9 @@
 
   /* ===== Actividades ===== */
   .activities{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:16px; }
+  #offersList{ grid-template-columns:repeat(3, 1fr); }
+  @media (max-width:900px){ #offersList{ grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:640px){ #offersList{ grid-template-columns:1fr; } }
   .activity-card{
     background:var(--paper); border:1px solid var(--line); border-radius:6px; overflow:hidden; backdrop-filter:blur(14px) saturate(150%); -webkit-backdrop-filter:blur(14px) saturate(150%);
   }
@@ -1035,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.19 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.20 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -4425,7 +4428,7 @@
         <div style="padding:20px 22px 26px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
             <h2 style="margin:0 0 2px; color:var(--navy);">${s.name}</h2>
-            <button class="icon-btn" type="button" style="white-space:nowrap; flex-shrink:0;" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))">📍 Cómo llegar</button>
+            <button class="btn" type="button" style="white-space:nowrap; flex-shrink:0;" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))">📍 Cómo llegar</button>
           </div>
           <span class="cat" style="font-family:'Space Mono',monospace; font-size:11px; color:var(--brick); text-transform:uppercase; letter-spacing:.05em;">${s.cat || ''}</span>
           ${s.address ? `<div style="margin:10px 0 0; font-size:13.5px; color:var(--navy-deep);">📍 ${s.address}</div>` : ''}

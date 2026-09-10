@@ -1034,7 +1034,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.15 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.16 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1289,7 +1289,7 @@
           <label for="shopOnlineSales" style="margin:0;">🛒 Este comercio también vende online</label>
         </div>
         <div class="field"><label>Enlace de venta online (opcional)</label><input type="text" id="shopOnlineSalesUrl" placeholder="Tienda online, catálogo de Instagram, pedidos por WhatsApp..."></div>
-        <div class="field"><label>Horario de apertura</label><textarea id="shopHours" placeholder="Ej: Lun-Vie 10:00-14:00 y 17:00-20:30&#10;Sáb 10:00-14:00&#10;Dom cerrado"></textarea></div>
+        <div id="shopHoursEditorContainer"></div>
         <div class="field">
           <label>Visible para</label>
           <select id="shopAudience">
@@ -4339,6 +4339,71 @@
     document.getElementById('galleryModal').classList.remove('open');
   }
 
+  // ===== Editor de horario (entre semana con varios días marcables + sábado
+  // y domingo cada uno con su propio horario) — reutilizado por el
+  // formulario de administrador y por "Mi comercio". "prefix" evita que los
+  // ids se choquen entre los dos formularios.
+  const HOURS_WEEKDAY_DEFS = [['mon','Lun'],['tue','Mar'],['wed','Mié'],['thu','Jue'],['fri','Vie']];
+
+  function renderHoursEditor(prefix, hd){
+    hd = hd || {};
+    const wd = hd.weekdayDays || [];
+    return `
+      <div class="field">
+        <label>Horario de apertura</label>
+        <div style="border:1px solid var(--line); border-radius:6px; padding:12px; margin-top:4px;">
+          <div style="font-size:12px; font-weight:600; color:var(--navy); margin-bottom:8px;">Entre semana</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px;">
+            ${HOURS_WEEKDAY_DEFS.map(([key,label]) => `<label style="display:flex; align-items:center; gap:4px; font-size:12.5px; color:#123024;"><input type="checkbox" id="${prefix}HoursDay-${key}" style="width:auto;" ${wd.includes(key) ? 'checked' : ''}> ${label}</label>`).join('')}
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:16px;">
+            <input type="time" id="${prefix}HoursWeekdayOpen" value="${hd.weekdayOpen || ''}" style="flex:1;">
+            <span style="font-size:12.5px; color:var(--navy-deep);">a</span>
+            <input type="time" id="${prefix}HoursWeekdayClose" value="${hd.weekdayClose || ''}" style="flex:1;">
+          </div>
+          <div style="font-size:12px; font-weight:600; color:var(--navy); margin-bottom:8px;">Fin de semana</div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:4px; font-size:12.5px; color:#123024; min-width:72px;"><input type="checkbox" id="${prefix}HoursSatEnabled" style="width:auto;" ${hd.satEnabled ? 'checked' : ''}> Sábado</label>
+            <input type="time" id="${prefix}HoursSatOpen" value="${hd.satOpen || ''}" style="flex:1; min-width:90px;">
+            <span style="font-size:12.5px; color:var(--navy-deep);">a</span>
+            <input type="time" id="${prefix}HoursSatClose" value="${hd.satClose || ''}" style="flex:1; min-width:90px;">
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <label style="display:flex; align-items:center; gap:4px; font-size:12.5px; color:#123024; min-width:72px;"><input type="checkbox" id="${prefix}HoursSunEnabled" style="width:auto;" ${hd.sunEnabled ? 'checked' : ''}> Domingo</label>
+            <input type="time" id="${prefix}HoursSunOpen" value="${hd.sunOpen || ''}" style="flex:1; min-width:90px;">
+            <span style="font-size:12.5px; color:var(--navy-deep);">a</span>
+            <input type="time" id="${prefix}HoursSunClose" value="${hd.sunClose || ''}" style="flex:1; min-width:90px;">
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function readHoursEditor(prefix){
+    const weekdayDays = HOURS_WEEKDAY_DEFS.map(([key]) => key).filter(key => document.getElementById(`${prefix}HoursDay-${key}`)?.checked);
+    return {
+      weekdayDays,
+      weekdayOpen: document.getElementById(`${prefix}HoursWeekdayOpen`)?.value || '',
+      weekdayClose: document.getElementById(`${prefix}HoursWeekdayClose`)?.value || '',
+      satEnabled: !!document.getElementById(`${prefix}HoursSatEnabled`)?.checked,
+      satOpen: document.getElementById(`${prefix}HoursSatOpen`)?.value || '',
+      satClose: document.getElementById(`${prefix}HoursSatClose`)?.value || '',
+      sunEnabled: !!document.getElementById(`${prefix}HoursSunEnabled`)?.checked,
+      sunOpen: document.getElementById(`${prefix}HoursSunOpen`)?.value || '',
+      sunClose: document.getElementById(`${prefix}HoursSunClose`)?.value || ''
+    };
+  }
+
+  // Convierte los datos marcados en el texto que se muestra en la ficha del comercio.
+  function compileHoursText(hd){
+    const dayLabels = { mon:'Lun', tue:'Mar', wed:'Mié', thu:'Jue', fri:'Vie' };
+    const lines = [];
+    const wdNames = (hd.weekdayDays || []).map(k => dayLabels[k]);
+    if(wdNames.length && hd.weekdayOpen && hd.weekdayClose) lines.push(`${wdNames.join(', ')}: ${hd.weekdayOpen}–${hd.weekdayClose}`);
+    if(hd.satEnabled && hd.satOpen && hd.satClose) lines.push(`Sáb: ${hd.satOpen}–${hd.satClose}`);
+    if(hd.sunEnabled && hd.sunOpen && hd.sunClose) lines.push(`Dom: ${hd.sunOpen}–${hd.sunClose}`);
+    return lines.join('\n');
+  }
+
   // ===== Ficha de un comercio (página completa: horario, ofertas, fotos, cómo llegar) =====
   function openShopDetail(shopId){
     const s = shops.find(x => x.id === shopId);
@@ -4351,12 +4416,15 @@
 
     const offers = (s.offers || []).filter(o => !o.endDate || daysUntil(o.endDate) >= 0);
     const offersHtml = offers.length ? offers.map(o => `
-      <div style="padding:10px 0; border-bottom:1px solid var(--line);">
-        <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
-          <strong style="color:var(--navy); font-size:14px;">${o.title}</strong>
-          ${o.price ? `<span class="mono" style="color:var(--brick); font-weight:700; font-size:13.5px; white-space:nowrap;">${o.price}</span>` : ''}
+      <div style="display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);">
+        ${o.image ? `<img src="${o.image}" alt="Foto de la oferta ${o.title}" class="poster-clickable" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(o.title)}'), '')" style="width:56px; height:56px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
+            <strong style="color:var(--navy); font-size:14px;">${o.title}</strong>
+            ${o.price ? `<span class="mono" style="color:var(--brick); font-weight:700; font-size:13.5px; white-space:nowrap;">${o.price}</span>` : ''}
+          </div>
+          ${(o.endDate || o.unitLimit) ? `<div style="font-size:11.5px; color:var(--navy-deep); margin-top:2px;">${o.endDate ? 'Válida hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Hasta agotar ' + o.unitLimit + ' unidades' : ''}</div>` : ''}
         </div>
-        ${(o.endDate || o.unitLimit) ? `<div style="font-size:11.5px; color:var(--navy-deep); margin-top:2px;">${o.endDate ? 'Válida hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Hasta agotar ' + o.unitLimit + ' unidades' : ''}</div>` : ''}
       </div>`).join('') : '';
 
     const interiorPhotos = s.interiorPhotos || [];
@@ -4394,6 +4462,14 @@
 
   // Ofertas propias de un comercio (título, precio, y opcionalmente fecha fin
   // o tope de unidades) — las gestiona el propio dueño desde "Mi comercio".
+  let pendingNewOfferPhotoFile = null;
+  function previewNewOfferPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingNewOfferPhotoFile = file;
+    document.getElementById('newOfferPhotoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto de la oferta" style="width:100%; border-radius:6px; display:block;">`;
+  }
+
   async function addShopOffer(shopId){
     const titleEl = document.getElementById('newOfferTitle');
     const priceEl = document.getElementById('newOfferPrice');
@@ -4403,16 +4479,32 @@
     if(!title){ alert('Ponle un título a la oferta.'); return; }
     const s = shops.find(x => x.id === shopId);
     if(!s) return;
+    let image = null;
+    if(pendingNewOfferPhotoFile){
+      try{
+        const fileRef = ref(storage, `offers/${Date.now()}_${pendingNewOfferPhotoFile.name}`);
+        await uploadBytes(fileRef, pendingNewOfferPhotoFile);
+        image = await getDownloadURL(fileRef);
+      } catch(err){
+        alert('No se pudo subir la foto de la oferta.');
+        console.error(err);
+        return;
+      }
+    }
     const offer = {
       id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
       title,
       price: priceEl.value.trim(),
+      image,
       endDate: endDateEl.value || null,
       unitLimit: unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null
     };
     try{
       await updateDoc(doc(db,'shops', shopId), { offers: [...(s.offers || []), offer] });
       titleEl.value = ''; priceEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
+      pendingNewOfferPhotoFile = null;
+      document.getElementById('newOfferPhotoInput').value = '';
+      document.getElementById('newOfferPhotoPreview').innerHTML = '';
     } catch(err){
       alert('No se pudo guardar la oferta.');
       console.error(err);
@@ -4445,6 +4537,9 @@
       galleryModalNav(dx < 0 ? 1 : -1);
     }, { passive:true });
   })();
+
+  const shopHoursInitEl = document.getElementById('shopHoursEditorContainer');
+  if(shopHoursInitEl) shopHoursInitEl.innerHTML = renderHoursEditor('shop', null);
 
   document.addEventListener('keydown', e => {
     if(!document.getElementById('galleryModal').classList.contains('open')) return;
@@ -4606,7 +4701,8 @@
     const facebook = document.getElementById('shopFacebook').value.trim();
     const onlineSales = document.getElementById('shopOnlineSales').checked;
     const onlineSalesUrl = document.getElementById('shopOnlineSalesUrl').value.trim();
-    const hours = document.getElementById('shopHours').value.trim();
+    const hoursData = readHoursEditor('shop');
+    const hours = compileHoursText(hoursData);
     const audience = document.getElementById('shopAudience').value;
     const contactName = document.getElementById('shopContactName').value.trim();
     const contactPhone = document.getElementById('shopContactPhone').value.trim();
@@ -4640,10 +4736,10 @@
       }
       interiorPhotos = interiorPhotos.filter(Boolean);
       if(isEditing){
-        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
+        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       } else {
         const c1 = shopPalette[shops.length % shopPalette.length];
-        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
+        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       }
       pendingLogoFile = null;
       pendingShopPhotoFile = null;
@@ -4671,7 +4767,7 @@
     document.getElementById('shopFacebook').value = s.facebook || '';
     document.getElementById('shopOnlineSales').checked = !!s.onlineSales;
     document.getElementById('shopOnlineSalesUrl').value = s.onlineSalesUrl || '';
-    document.getElementById('shopHours').value = s.hours || '';
+    document.getElementById('shopHoursEditorContainer').innerHTML = renderHoursEditor('shop', s.hoursData);
     document.getElementById('shopAudience').value = s.audience || 'todos';
     document.getElementById('shopContactName').value = s.contactName || '';
     document.getElementById('shopContactPhone').value = s.contactPhone || '';
@@ -4704,6 +4800,7 @@
     document.getElementById('shopFormTag').textContent = '⚙ Añadir comercio (administrador)';
     document.getElementById('shopSubmitBtn').textContent = 'Añadir al directorio';
     document.getElementById('shopCancelEditBtn').style.display = 'none';
+    document.getElementById('shopHoursEditorContainer').innerHTML = renderHoursEditor('shop', null);
   }
 
   async function deleteShop(id){
@@ -5304,7 +5401,7 @@
             <label for="miComercioOnlineSales" style="margin:0;">🛒 También vendo online</label>
           </div>
           <div class="field"><label>Enlace de venta online (opcional)</label><input type="text" id="miComercioOnlineSalesUrl" placeholder="Tienda online, catálogo de Instagram, pedidos por WhatsApp..." value="${s.onlineSalesUrl || ''}"></div>
-          <div class="field"><label>Horario de apertura</label><textarea id="miComercioHours" placeholder="Ej: Lun-Vie 10:00-14:00 y 17:00-20:30&#10;Sáb 10:00-14:00&#10;Dom cerrado">${s.hours || ''}</textarea></div>
+          ${renderHoursEditor('miComercio', s.hoursData)}
           <div class="logo-upload">
             <div class="logo-preview small" id="miComercioPhotoPreview">${s.photo ? `<img src="${s.photo}" alt="Foto">` : '<span>Sin foto</span>'}</div>
             <div style="flex:1">
@@ -5336,9 +5433,12 @@
         <div id="miComercioOffersList">
           ${(s.offers && s.offers.length) ? s.offers.map(o => `
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
-              <div>
-                <strong style="color:var(--navy);">${o.title}</strong>${o.price ? ` — <span class="mono">${o.price}</span>` : ''}
-                <div style="font-size:11.5px; color:var(--navy-deep);">${o.endDate ? 'Hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Tope: ' + o.unitLimit + ' unidades' : ''}</div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                ${o.image ? `<img src="${o.image}" alt="Foto de la oferta" style="width:44px; height:44px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
+                <div>
+                  <strong style="color:var(--navy);">${o.title}</strong>${o.price ? ` — <span class="mono">${o.price}</span>` : ''}
+                  <div style="font-size:11.5px; color:var(--navy-deep);">${o.endDate ? 'Hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Tope: ' + o.unitLimit + ' unidades' : ''}</div>
+                </div>
               </div>
               <button class="icon-btn danger" type="button" onclick="deleteShopOffer('${s.id}', '${o.id}')">✕</button>
             </div>`).join('') : '<p class="collab-empty">Todavía no has añadido ninguna oferta.</p>'}
@@ -5346,6 +5446,11 @@
         <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); display:grid; gap:10px;">
           <input type="text" id="newOfferTitle" placeholder="Título de la oferta (ej: 2x1 en cafés)">
           <input type="text" id="newOfferPrice" placeholder="Precio (ej: 4,50€ o Gratis)">
+          <div>
+            <label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Foto (opcional)</label>
+            <input type="file" accept="image/*" id="newOfferPhotoInput" onchange="previewNewOfferPhoto(event)">
+            <div id="newOfferPhotoPreview" style="margin-top:6px; max-width:140px;"></div>
+          </div>
           <div style="display:flex; gap:10px;">
             <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha fin (opcional)</label><input type="date" id="newOfferEndDate" style="width:100%;"></div>
             <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Tope de unidades (opcional)</label><input type="number" id="newOfferUnitLimit" min="1" style="width:100%;"></div>
@@ -5371,7 +5476,8 @@
       const facebook = document.getElementById('miComercioFacebook').value.trim();
       const onlineSales = document.getElementById('miComercioOnlineSales').checked;
       const onlineSalesUrl = document.getElementById('miComercioOnlineSalesUrl').value.trim();
-      const hours = document.getElementById('miComercioHours').value.trim();
+      const hoursData = readHoursEditor('miComercio');
+      const hours = compileHoursText(hoursData);
       let photo = s.photo || null;
       if(pendingMiComercioPhotoFile){
         const fileRef = ref(storage, `shops/${Date.now()}_${pendingMiComercioPhotoFile.name}`);
@@ -5393,7 +5499,7 @@
         }
       }
       interiorPhotos = interiorPhotos.filter(Boolean);
-      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, photo, logo, interiorPhotos });
+      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, photo, logo, interiorPhotos });
       pendingMiComercioPhotoFile = null;
       pendingMiComercioLogoFile = null;
       pendingMiComercioInteriorFiles = [null, null, null, null];
@@ -6757,7 +6863,7 @@
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
     previewNewsProposalImage, submitNewsProposal, selectNewsType, cancelNewsProposalType, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
-    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openShopDetail, addShopOffer, deleteShopOffer, openNewsModal, closeNewsModal,
+    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openShopDetail, addShopOffer, deleteShopOffer, previewNewOfferPhoto, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,
     handleUploadTicket, submitSurpriseIdentity, saveSurpriseSettings, markSurprisePrizeClaimed, resetSurpriseSeason,
     addSurpriseStepRow, removeSurpriseStep, updateSurpriseStep,

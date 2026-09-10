@@ -1035,7 +1035,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.18 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.19 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1572,25 +1572,7 @@
       <h2>🤝 Ofertas entre socios</h2>
       <span class="count mono" id="offersCount"></span>
     </div>
-    <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Espacio para que los comercios asociados se ofrezcan ventajas entre sí (descuentos por colaboración, packs conjuntos, promociones cruzadas...). Solo lo ven los socios y la administración, nunca el público general.</p>
-
-    <div class="socio-panel">
-      <span class="tag">➕ Publicar una oferta para otros socios</span>
-      <form onsubmit="return addOffer(event)">
-        <div class="logo-upload">
-          <div class="logo-preview" id="offerImagePreview"><span>Sin foto</span></div>
-          <div style="flex:1">
-            <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--navy);">Foto de la oferta (opcional)</label>
-            <input type="file" accept="image/*" id="offerImageInput" onchange="previewOfferImage(event)">
-          </div>
-        </div>
-        <div class="field"><label>Tu comercio</label><input type="text" id="offerShopName" required placeholder="Ej: Panadería San Ginés"></div>
-        <div class="field"><label>Tu correo electrónico</label><input type="email" id="offerEmail" required placeholder="tucomercio@correo.com"></div>
-        <div class="field"><label>Título de la oferta</label><input type="text" id="offerTitle" required placeholder="Ej: 10% de descuento si traes tique de otro comercio asociado"></div>
-        <div class="field"><label>Descripción</label><textarea id="offerDescription" required placeholder="Cuenta los detalles de tu oferta..."></textarea></div>
-        <button class="btn teal" type="submit">Publicar oferta</button>
-      </form>
-    </div>
+    <p style="margin:0 0 18px; font-size:13.5px; color:var(--navy-deep);">Ventajas que los comercios asociados se ofrecen entre sí (descuentos por colaboración, packs conjuntos, promociones cruzadas...). Solo lo ven los socios y la administración, nunca el público general. Añade las tuyas desde "Mi comercio" → "Ofertas para otros socios".</p>
 
     <div class="activities" id="offersList"></div>
   </section>
@@ -1676,7 +1658,7 @@
 
     <div class="card" style="margin-bottom:14px;">
       <h3 style="margin:0 0 8px; font-size:15px; color:var(--navy);">🎁 Ver ofertas entre socios</h3>
-      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Ofertas socios"</strong> puedes ver descuentos y ventajas que otros comercios ofrecen a los socios de la asociación, y añadir los tuyos propios con el formulario de esa misma pestaña.</p>
+      <p style="margin:0; font-size:13.5px; color:#123024;">En <strong>"Ofertas socios"</strong> puedes ver descuentos y ventajas que otros comercios ofrecen a los socios de la asociación, y añadir las tuyas desde "Mi comercio" → "Ofertas para otros socios".</p>
     </div>
 
     <div class="card" style="margin-bottom:14px;">
@@ -4415,7 +4397,7 @@
     const facebookUrl = s.facebook ? (/^https?:\/\//i.test(s.facebook) ? s.facebook : 'https://' + s.facebook.replace(/^facebook\.com\//i,'facebook.com/')) : null;
     const onlineSalesUrl = s.onlineSalesUrl ? (/^https?:\/\//i.test(s.onlineSalesUrl) ? s.onlineSalesUrl : 'https://' + s.onlineSalesUrl) : null;
 
-    const offers = (s.offers || []).filter(o => !o.endDate || daysUntil(o.endDate) >= 0);
+    const offers = (s.offers || []).filter(o => (!o.startDate || daysUntil(o.startDate) <= 0) && (!o.endDate || daysUntil(o.endDate) >= 0));
     const offersHtml = offers.length ? offers.map(o => `
       <div style="display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);">
         ${o.image ? `<img src="${o.image}" alt="Foto de la oferta ${o.title}" class="poster-clickable" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(o.title)}'), '')" style="width:56px; height:56px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
@@ -4424,7 +4406,7 @@
             <strong style="color:var(--navy); font-size:14px;">${o.title}</strong>
             ${o.price ? `<span class="mono" style="color:var(--brick); font-weight:700; font-size:13.5px; white-space:nowrap;">${o.price}</span>` : ''}
           </div>
-          ${(o.endDate || o.unitLimit) ? `<div style="font-size:11.5px; color:var(--navy-deep); margin-top:2px;">${o.endDate ? 'Válida hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Hasta agotar ' + o.unitLimit + ' unidades' : ''}</div>` : ''}
+          <div style="font-size:11.5px; color:var(--navy-deep); margin-top:2px;">${o.endDate ? 'Válida hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Hasta agotar ' + o.unitLimit + ' unidades' : ''}</div>
         </div>
       </div>`).join('') : '';
 
@@ -4441,7 +4423,10 @@
       <div class="card" style="padding:0; overflow:hidden;">
         ${s.photo ? `<img src="${s.photo}" alt="${s.name}" class="shop-detail-hero">` : `<div class="shop-detail-hero" style="background:linear-gradient(135deg, ${s.color1}, ${s.color2});"></div>`}
         <div style="padding:20px 22px 26px;">
-          <h2 style="margin:0 0 2px; color:var(--navy);">${s.name}</h2>
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+            <h2 style="margin:0 0 2px; color:var(--navy);">${s.name}</h2>
+            <button class="icon-btn" type="button" style="white-space:nowrap; flex-shrink:0;" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))">📍 Cómo llegar</button>
+          </div>
           <span class="cat" style="font-family:'Space Mono',monospace; font-size:11px; color:var(--brick); text-transform:uppercase; letter-spacing:.05em;">${s.cat || ''}</span>
           ${s.address ? `<div style="margin:10px 0 0; font-size:13.5px; color:var(--navy-deep);">📍 ${s.address}</div>` : ''}
           <div class="shop-detail-info-row">
@@ -4458,7 +4443,6 @@
             </div>` : ''}
           </div>
           ${offersHtml ? `<div style="margin-top:18px;"><h4 style="margin:0 0 4px; font-size:14px; color:var(--navy);">🏷️ Ofertas</h4>${offersHtml}</div>` : ''}
-          <button class="btn" type="button" style="margin-top:20px;" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))">📍 Cómo llegar</button>
           ${photosHtml}
         </div>
       </div>`;
@@ -4479,10 +4463,13 @@
   async function addShopOffer(shopId){
     const titleEl = document.getElementById('newOfferTitle');
     const priceEl = document.getElementById('newOfferPrice');
+    const startDateEl = document.getElementById('newOfferStartDate');
     const endDateEl = document.getElementById('newOfferEndDate');
     const unitLimitEl = document.getElementById('newOfferUnitLimit');
     const title = titleEl.value.trim();
     if(!title){ alert('Ponle un título a la oferta.'); return; }
+    if(!startDateEl.value || !endDateEl.value){ alert('Toda oferta necesita fecha de inicio y fecha de fin.'); return; }
+    if(endDateEl.value < startDateEl.value){ alert('La fecha fin no puede ser anterior a la fecha de inicio.'); return; }
     const s = shops.find(x => x.id === shopId);
     if(!s) return;
     let image = null;
@@ -4502,12 +4489,13 @@
       title,
       price: priceEl.value.trim(),
       image,
-      endDate: endDateEl.value || null,
+      startDate: startDateEl.value,
+      endDate: endDateEl.value,
       unitLimit: unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null
     };
     try{
       await updateDoc(doc(db,'shops', shopId), { offers: [...(s.offers || []), offer] });
-      titleEl.value = ''; priceEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
+      titleEl.value = ''; priceEl.value = ''; startDateEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
       pendingNewOfferPhotoFile = null;
       document.getElementById('newOfferPhotoInput').value = '';
       document.getElementById('newOfferPhotoPreview').innerHTML = '';
@@ -4523,6 +4511,73 @@
     if(!s) return;
     try{
       await updateDoc(doc(db,'shops', shopId), { offers: (s.offers || []).filter(o => o.id !== offerId) });
+    } catch(err){
+      alert('No se pudo eliminar la oferta.');
+      console.error(err);
+    }
+  }
+
+  // ===== Ofertas para otros socios (idéntico a las de clientes, pero se
+  // muestran en "Ofertas socios" y nunca en la ficha pública del directorio) =====
+  let pendingNewSocioOfferPhotoFile = null;
+  function previewNewSocioOfferPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingNewSocioOfferPhotoFile = file;
+    document.getElementById('newSocioOfferPhotoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto de la oferta" style="width:100%; border-radius:6px; display:block;">`;
+  }
+
+  async function addShopSocioOffer(shopId){
+    const titleEl = document.getElementById('newSocioOfferTitle');
+    const priceEl = document.getElementById('newSocioOfferPrice');
+    const startDateEl = document.getElementById('newSocioOfferStartDate');
+    const endDateEl = document.getElementById('newSocioOfferEndDate');
+    const unitLimitEl = document.getElementById('newSocioOfferUnitLimit');
+    const title = titleEl.value.trim();
+    if(!title){ alert('Ponle un título a la oferta.'); return; }
+    if(!startDateEl.value || !endDateEl.value){ alert('Toda oferta necesita fecha de inicio y fecha de fin.'); return; }
+    if(endDateEl.value < startDateEl.value){ alert('La fecha fin no puede ser anterior a la fecha de inicio.'); return; }
+    const s = shops.find(x => x.id === shopId);
+    if(!s) return;
+    let image = null;
+    if(pendingNewSocioOfferPhotoFile){
+      try{
+        const fileRef = ref(storage, `offers/${Date.now()}_${pendingNewSocioOfferPhotoFile.name}`);
+        await uploadBytes(fileRef, pendingNewSocioOfferPhotoFile);
+        image = await getDownloadURL(fileRef);
+      } catch(err){
+        alert('No se pudo subir la foto de la oferta.');
+        console.error(err);
+        return;
+      }
+    }
+    const offer = {
+      id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+      title,
+      price: priceEl.value.trim(),
+      image,
+      startDate: startDateEl.value,
+      endDate: endDateEl.value,
+      unitLimit: unitLimitEl.value ? parseInt(unitLimitEl.value, 10) : null
+    };
+    try{
+      await updateDoc(doc(db,'shops', shopId), { socioOffers: [...(s.socioOffers || []), offer] });
+      titleEl.value = ''; priceEl.value = ''; startDateEl.value = ''; endDateEl.value = ''; unitLimitEl.value = '';
+      pendingNewSocioOfferPhotoFile = null;
+      document.getElementById('newSocioOfferPhotoInput').value = '';
+      document.getElementById('newSocioOfferPhotoPreview').innerHTML = '';
+    } catch(err){
+      alert('No se pudo guardar la oferta.');
+      console.error(err);
+    }
+  }
+
+  async function deleteShopSocioOffer(shopId, offerId){
+    if(!confirm('¿Eliminar esta oferta?')) return;
+    const s = shops.find(x => x.id === shopId);
+    if(!s) return;
+    try{
+      await updateDoc(doc(db,'shops', shopId), { socioOffers: (s.socioOffers || []).filter(o => o.id !== offerId) });
     } catch(err){
       alert('No se pudo eliminar la oferta.');
       console.error(err);
@@ -5443,7 +5498,7 @@
                 ${o.image ? `<img src="${o.image}" alt="Foto de la oferta" style="width:44px; height:44px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
                 <div>
                   <strong style="color:var(--navy);">${o.title}</strong>${o.price ? ` — <span class="mono">${o.price}</span>` : ''}
-                  <div style="font-size:11.5px; color:var(--navy-deep);">${o.endDate ? 'Hasta ' + fmtDate(o.endDate) : ''}${o.endDate && o.unitLimit ? ' · ' : ''}${o.unitLimit ? 'Tope: ' + o.unitLimit + ' unidades' : ''}</div>
+                  <div style="font-size:11.5px; color:var(--navy-deep);">${o.startDate ? fmtDate(o.startDate) : '¿?'} → ${o.endDate ? fmtDate(o.endDate) : '¿?'}${o.unitLimit ? ' · Tope: ' + o.unitLimit + ' unidades' : ''}</div>
                 </div>
               </div>
               <button class="icon-btn danger" type="button" onclick="deleteShopOffer('${s.id}', '${o.id}')">✕</button>
@@ -5458,10 +5513,44 @@
             <div id="newOfferPhotoPreview" style="margin-top:6px; max-width:140px;"></div>
           </div>
           <div style="display:flex; gap:10px;">
-            <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha fin (opcional)</label><input type="date" id="newOfferEndDate" style="width:100%;"></div>
-            <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Tope de unidades (opcional)</label><input type="number" id="newOfferUnitLimit" min="1" style="width:100%;"></div>
+            <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha inicio *</label><input type="date" id="newOfferStartDate" style="width:100%;"></div>
+            <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha fin *</label><input type="date" id="newOfferEndDate" style="width:100%;"></div>
           </div>
+          <div><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Tope de unidades (opcional)</label><input type="number" id="newOfferUnitLimit" min="1" style="width:100%;"></div>
           <button class="btn" type="button" onclick="addShopOffer('${s.id}')">+ Añadir oferta</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px;">
+        <h3 style="margin:0 0 6px; font-size:15px; color:var(--navy);">🤝 Ofertas para otros socios</h3>
+        <p style="margin:0 0 14px; font-size:12.5px; color:var(--navy-deep);">Solo las ven otros comercios asociados y la administración, en "Ofertas socios" — nunca el público general ni tu ficha pública del directorio.</p>
+        <div id="miComercioSocioOffersList">
+          ${(s.socioOffers && s.socioOffers.length) ? s.socioOffers.map(o => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);">
+              <div style="display:flex; align-items:center; gap:10px;">
+                ${o.image ? `<img src="${o.image}" alt="Foto de la oferta" style="width:44px; height:44px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
+                <div>
+                  <strong style="color:var(--navy);">${o.title}</strong>${o.price ? ` — <span class="mono">${o.price}</span>` : ''}
+                  <div style="font-size:11.5px; color:var(--navy-deep);">${o.startDate ? fmtDate(o.startDate) : '¿?'} → ${o.endDate ? fmtDate(o.endDate) : '¿?'}${o.unitLimit ? ' · Tope: ' + o.unitLimit + ' unidades' : ''}</div>
+                </div>
+              </div>
+              <button class="icon-btn danger" type="button" onclick="deleteShopSocioOffer('${s.id}', '${o.id}')">✕</button>
+            </div>`).join('') : '<p class="collab-empty">Todavía no has añadido ninguna oferta para socios.</p>'}
+        </div>
+        <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--line); display:grid; gap:10px;">
+          <input type="text" id="newSocioOfferTitle" placeholder="Título de la oferta (ej: 10% si traes tique de otro socio)">
+          <input type="text" id="newSocioOfferPrice" placeholder="Precio o descuento (opcional)">
+          <div>
+            <label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Foto (opcional)</label>
+            <input type="file" accept="image/*" id="newSocioOfferPhotoInput" onchange="previewNewSocioOfferPhoto(event)">
+            <div id="newSocioOfferPhotoPreview" style="margin-top:6px; max-width:140px;"></div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha inicio *</label><input type="date" id="newSocioOfferStartDate" style="width:100%;"></div>
+            <div style="flex:1;"><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Fecha fin *</label><input type="date" id="newSocioOfferEndDate" style="width:100%;"></div>
+          </div>
+          <div><label style="display:block; font-size:11px; color:var(--navy-deep); margin-bottom:3px;">Tope de unidades (opcional)</label><input type="number" id="newSocioOfferUnitLimit" min="1" style="width:100%;"></div>
+          <button class="btn" type="button" onclick="addShopSocioOffer('${s.id}')">+ Añadir oferta</button>
         </div>
       </div>`;
   }
@@ -6607,20 +6696,28 @@
 
   function renderOffers(){
     const countEl = document.getElementById('offersCount');
-    if(countEl) countEl.textContent = offers.length + (offers.length === 1 ? ' oferta' : ' ofertas');
     const listEl = document.getElementById('offersList');
     if(!listEl) return;
-    listEl.innerHTML = offers.length ? offers.map(o => `
-      <div class="activity-card" style="position:relative;">
-        ${isAdmin ? `<button class="shop-delete" onclick="deleteOffer('${o.id}')" title="Eliminar oferta">✕</button>` : ''}
-        ${o.image ? `<img src="${o.image}" alt="Foto de la oferta de ${o.shopName}" class="poster-clickable" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(o.title)}'), decodeURIComponent('${encodeURIComponent(o.shopName)}'))" style="width:100%; height:150px; object-fit:cover; display:block;">` : '<div class="band"></div>'}
+    const allSocioOffers = [];
+    shops.forEach(s => {
+      (s.socioOffers || []).forEach(o => {
+        const started = !o.startDate || daysUntil(o.startDate) <= 0;
+        const notEnded = !o.endDate || daysUntil(o.endDate) >= 0;
+        if(started && notEnded) allSocioOffers.push({ ...o, shopName: s.name, shopId: s.id });
+      });
+    });
+    allSocioOffers.sort((a,b) => (a.endDate || '').localeCompare(b.endDate || ''));
+    if(countEl) countEl.textContent = allSocioOffers.length + (allSocioOffers.length === 1 ? ' oferta' : ' ofertas');
+    listEl.innerHTML = allSocioOffers.length ? allSocioOffers.map(o => `
+      <div class="news-card">
+        ${isAdmin ? `<button class="shop-delete" onclick="deleteShopSocioOffer('${o.shopId}', '${o.id}')" title="Eliminar oferta">✕</button>` : ''}
+        ${o.image ? `<img src="${o.image}" alt="Foto de la oferta de ${o.shopName}" class="photo" onclick="openPosterModal(this.src, decodeURIComponent('${encodeURIComponent(o.title)}'), decodeURIComponent('${encodeURIComponent(o.shopName)}'))">` : '<div class="noimg"></div>'}
         <div class="body">
-          <span class="date">${o.shopName}</span>
+          <span class="date">${o.shopName}${o.endDate ? ' · Hasta ' + fmtDate(o.endDate) : ''}</span>
           <h4>${o.title}</h4>
-          <p>${o.description}</p>
-          ${o.email ? `<div class="shop-links" style="margin-top:8px;"><a href="mailto:${o.email}" title="Escribir un correo">✉️ ${o.email}</a></div>` : ''}
+          <p>${o.price || ''}</p>
         </div>
-      </div>`).join('') : '<p class="collab-empty">Todavía no hay ofertas publicadas. ¡Sé el primer socio en proponer una!</p>';
+      </div>`).join('') : '<p class="collab-empty">Todavía no hay ofertas publicadas. ¡Añade las tuyas desde "Mi comercio"!</p>';
   }
 
   function renderPassport(){
@@ -6851,7 +6948,7 @@
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
     previewNewsProposalImage, submitNewsProposal, selectNewsType, cancelNewsProposalType, approveNewsProposal, rejectNewsProposal,
     previewCollabLogo, addCollaborator, deleteCollaborator, moveCollaborator,
-    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openShopDetail, addShopOffer, deleteShopOffer, previewNewOfferPhoto, openNewsModal, closeNewsModal,
+    submitMemberForm, openPosterModal, closePosterModal, openGalleryModal, galleryModalNav, closeGalleryModal, openShopDetail, addShopOffer, deleteShopOffer, previewNewOfferPhoto, addShopSocioOffer, deleteShopSocioOffer, previewNewSocioOfferPhoto, openNewsModal, closeNewsModal,
     submitPassportIdentity, savePassportSettings, markPrizeClaimed, resetPassportSeason,
     handleUploadTicket, submitSurpriseIdentity, saveSurpriseSettings, markSurprisePrizeClaimed, resetSurpriseSeason,
     addSurpriseStepRow, removeSurpriseStep, updateSurpriseStep,

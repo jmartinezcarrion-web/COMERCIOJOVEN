@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.22 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.23 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -2041,8 +2041,8 @@
   // ===== Qué concursos están activos y dónde se muestran =====
   let contestSettings = {
     pasaporte: { active: true, showInicio: true, startDate: '', endDate: '', audience: 'todos' },
-    reto: { active: true, showInicio: false, startDate: '', endDate: '', audience: 'todos' },
-    tesoro: { active: true, showInicio: false, startDate: '', endDate: '', audience: 'todos' },
+    reto: { active: false, showInicio: false, startDate: '', endDate: '', audience: 'todos' },
+    tesoro: { active: false, showInicio: false, startDate: '', endDate: '', audience: 'todos' },
     fidelidad: { active: false, showInicio: false, startDate: '', endDate: '', audience: 'todos' }
   };
   const CONTEST_LABELS = {
@@ -2516,9 +2516,9 @@
     if(snap.exists()){
       const d = snap.data();
       contestSettings = {
-        pasaporte: { active: d.pasaporte?.active !== false, showInicio: !!d.pasaporte?.showInicio, startDate: d.pasaporte?.startDate || '', endDate: d.pasaporte?.endDate || '', audience: d.pasaporte?.audience || 'todos' },
-        reto: { active: d.reto?.active !== false, showInicio: !!d.reto?.showInicio, startDate: d.reto?.startDate || '', endDate: d.reto?.endDate || '', audience: d.reto?.audience || 'todos' },
-        tesoro: { active: d.tesoro?.active !== false, showInicio: !!d.tesoro?.showInicio, startDate: d.tesoro?.startDate || '', endDate: d.tesoro?.endDate || '', audience: d.tesoro?.audience || 'todos' },
+        pasaporte: { active: !!d.pasaporte?.active, showInicio: !!d.pasaporte?.showInicio, startDate: d.pasaporte?.startDate || '', endDate: d.pasaporte?.endDate || '', audience: d.pasaporte?.audience || 'todos' },
+        reto: { active: !!d.reto?.active, showInicio: !!d.reto?.showInicio, startDate: d.reto?.startDate || '', endDate: d.reto?.endDate || '', audience: d.reto?.audience || 'todos' },
+        tesoro: { active: !!d.tesoro?.active, showInicio: !!d.tesoro?.showInicio, startDate: d.tesoro?.startDate || '', endDate: d.tesoro?.endDate || '', audience: d.tesoro?.audience || 'todos' },
         fidelidad: { active: !!d.fidelidad?.active, showInicio: !!d.fidelidad?.showInicio, startDate: d.fidelidad?.startDate || '', endDate: d.fidelidad?.endDate || '', audience: d.fidelidad?.audience || 'todos' }
       };
     }

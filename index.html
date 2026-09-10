@@ -684,12 +684,13 @@
   .gallery-photo-wrap{ position:relative; touch-action:pan-y; }
 
   /* ===== Página de ficha de un comercio ===== */
-  .shop-detail-hero{ width:100%; height:260px; object-fit:cover; display:block; border-radius:10px; }
+  .shop-detail-hero{ width:100%; aspect-ratio:16/9; object-fit:cover; object-position:center; display:block; border-radius:10px; }
   .shop-detail-photos{ display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-top:10px; }
   .shop-detail-photos img{ width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:8px; cursor:pointer; display:block; }
+  .shop-detail-info-row{ display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; }
+  .shop-detail-info-row > div{ flex:1; min-width:220px; }
   @media (max-width:640px){
     .shop-detail-photos{ grid-template-columns:1fr; }
-    .shop-detail-hero{ height:200px; }
   }
 
   /* ===== Modal de login de administrador ===== */
@@ -1034,7 +1035,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.17 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.18 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1353,7 +1354,7 @@
 
   <!-- FICHA DE UN COMERCIO (página completa, no modal) -->
   <section class="view" id="view-shopdetail">
-    <button class="icon-btn" type="button" onclick="showView('comercios', document.querySelector('#navTabs button[onclick*=comercios]'))" style="margin-bottom:16px;">← Volver al directorio</button>
+    <button class="btn" type="button" onclick="showView('comercios', document.querySelector('#navTabs button[onclick*=comercios]'))" style="margin-bottom:16px;">← Volver al directorio</button>
     <div id="shopDetailBody"></div>
   </section>
 
@@ -4443,15 +4444,20 @@
           <h2 style="margin:0 0 2px; color:var(--navy);">${s.name}</h2>
           <span class="cat" style="font-family:'Space Mono',monospace; font-size:11px; color:var(--brick); text-transform:uppercase; letter-spacing:.05em;">${s.cat || ''}</span>
           ${s.address ? `<div style="margin:10px 0 0; font-size:13.5px; color:var(--navy-deep);">📍 ${s.address}</div>` : ''}
-          ${s.hours ? `<div style="margin:12px 0 0; font-size:13.5px; color:#123024; white-space:pre-wrap; line-height:1.5;"><strong>🕒 Horario</strong><br>${s.hours}</div>` : ''}
+          <div class="shop-detail-info-row">
+            ${s.hours ? `<div style="font-size:13.5px; color:#123024; white-space:pre-wrap; line-height:1.5;"><strong>🕒 Horario</strong><br>${s.hours}</div>` : ''}
+            ${s.phone || websiteUrl || instagramUrl || facebookUrl || onlineSalesUrl ? `<div>
+              <strong style="font-size:13.5px; color:#123024;">📇 Contacto</strong>
+              <div class="shop-links" style="margin-top:6px;">
+                ${s.phone ? `<a href="tel:${s.phone.replace(/\s+/g,'')}" title="Llamar">📞 ${s.phone}</a>` : ''}
+                ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" rel="noopener noreferrer" title="Visitar web">🌐 Web</a>` : ''}
+                ${onlineSalesUrl ? `<a href="${onlineSalesUrl}" target="_blank" rel="noopener noreferrer" title="Comprar online">🛒 Comprar online</a>` : ''}
+                ${instagramUrl ? `<a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" title="Instagram">📷 Instagram</a>` : ''}
+                ${facebookUrl ? `<a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" title="Facebook">📘 Facebook</a>` : ''}
+              </div>
+            </div>` : ''}
+          </div>
           ${offersHtml ? `<div style="margin-top:18px;"><h4 style="margin:0 0 4px; font-size:14px; color:var(--navy);">🏷️ Ofertas</h4>${offersHtml}</div>` : ''}
-          ${s.phone || websiteUrl || instagramUrl || facebookUrl || onlineSalesUrl ? `<div class="shop-links" style="margin-top:18px;">
-            ${s.phone ? `<a href="tel:${s.phone.replace(/\s+/g,'')}" title="Llamar">📞 ${s.phone}</a>` : ''}
-            ${websiteUrl ? `<a href="${websiteUrl}" target="_blank" rel="noopener noreferrer" title="Visitar web">🌐 Web</a>` : ''}
-            ${instagramUrl ? `<a href="${instagramUrl}" target="_blank" rel="noopener noreferrer" title="Instagram">📷 Instagram</a>` : ''}
-            ${facebookUrl ? `<a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" title="Facebook">📘 Facebook</a>` : ''}
-            ${onlineSalesUrl ? `<a href="${onlineSalesUrl}" target="_blank" rel="noopener noreferrer" title="Comprar online">🛒 Comprar online</a>` : ''}
-          </div>` : ''}
           <button class="btn" type="button" style="margin-top:20px;" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))">📍 Cómo llegar</button>
           ${photosHtml}
         </div>
@@ -6487,7 +6493,7 @@
           ${s.photo && s.logo ? `<img src="${s.logo}" alt="Logo de ${s.name}" class="shop-logo-badge">` : ''}
         </div>
         <div class="body">
-          <h4>${s.name} ${s.audience === 'socios' ? `<span class="badge al-dia" style="font-size:9px; padding:2px 6px; vertical-align:middle;">Socios</span>` : ''} ${s.onlineSales ? `<span class="badge" style="font-size:9px; padding:2px 6px; vertical-align:middle; background:var(--teal); color:#fff;">🛒 Venta online</span>` : ''}</h4>
+          <h4>${s.name} ${s.audience === 'socios' ? `<span class="badge al-dia" style="font-size:9px; padding:2px 6px; vertical-align:middle;">Socios</span>` : ''}</h4>
           <button class="btn" type="button" onclick="event.stopPropagation(); openShopDetail('${s.id}')" style="width:100%; margin-top:10px;">Descubre más</button>
         </div>
       </div>`;

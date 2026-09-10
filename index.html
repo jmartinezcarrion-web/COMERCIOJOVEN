@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.25 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.26 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -3307,20 +3307,6 @@
           <p><strong>¿Cómo funciona?</strong> ${fidelidadSettings.howItWorks || 'Cada vez que compres en un comercio asociado, escanea su QR con el botón de arriba, sube la foto del tique y escribe el importe. Al cerrarse el concurso, gana quien haya comprado en más comercios distintos; a igualdad de comercios, quien más haya gastado en total.'}</p>
           ${contestSettings.fidelidad && contestSettings.fidelidad.endDate ? `<p style="margin:8px 0 0; font-size:13px; color:var(--brick); font-weight:600;">📅 El concurso termina el ${fmtDate(contestSettings.fidelidad.endDate)}</p>` : ''}
           ${fidelidadRecord ? `<div class="passport-count">${(fidelidadRecord.totalAmount||0).toFixed(2)}€ acumulados · ${fidelidadRecord.ticketCount||0} tique${fidelidadRecord.ticketCount === 1 ? '' : 's'} enviado${fidelidadRecord.ticketCount === 1 ? '' : 's'} · ${fidelidadShopVariety(fidelidadRecord)} comercio${fidelidadShopVariety(fidelidadRecord)===1?'':'s'} distinto${fidelidadShopVariety(fidelidadRecord)===1?'':'s'}</div>` : ''}
-        </div>`;
-
-      const publicRanking = sortFidelidadRanking(fidelidadAllCustomers).slice(0, 10);
-      const isExample = publicRanking.length === 0;
-      const rankingRows = isExample
-        ? [{ name:'María G.', totalAmount:45, tickets:{a:{shopId:'x'},b:{shopId:'y'},c:{shopId:'z'}} }, { name:'Javier R.', totalAmount:38, tickets:{a:{shopId:'x'},b:{shopId:'y'}} }, { name:'Lucía M.', totalAmount:52, tickets:{a:{shopId:'x'}} }]
-        : publicRanking;
-      html += `
-        <div class="passport-intro" style="margin-top:16px;">
-          <h4 style="margin:0 0 10px; font-size:15px; color:var(--navy);">🏆 Ranking de clientes${isExample ? ' <span style="font-weight:400; font-size:12px; color:var(--navy-deep);">(ejemplo — así se verá cuando haya participantes)</span>' : ''}</h4>
-          ${rankingRows.map((c, i) => `
-            <div class="passport-customer-row"${isExample ? ' style="opacity:.55;"' : ''}>
-              <div class="who"><strong>#${i+1} · ${c.name.split(' ')[0]} ${c.name.split(' ')[1] ? c.name.split(' ')[1][0]+'.' : ''}</strong><span>${fidelidadShopVariety(c)} comercio${fidelidadShopVariety(c)===1?'':'s'} distinto${fidelidadShopVariety(c)===1?'':'s'} · ${(c.totalAmount||0).toFixed(2)}€</span></div>
-            </div>`).join('')}
         </div>`;
 
       if(pendingFidelidadShopId){

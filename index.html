@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.30 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.31 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -5501,22 +5501,57 @@
     }).join('');
   }
 
-  // Misma información que ve el administrador, pero solo lectura — sin
-  // botones de borrar ni compartir — para la pestaña "Encuestas" de socios.
+  // Para socios: si el dispositivo aún no ha votado esa encuesta, se muestra
+  // el formulario para votar; si ya votó, se muestran los resultados.
   function renderSurveysListSocio(){
     const wrap = document.getElementById('surveysListSocio');
     if(!wrap) return;
     if(!surveys.length){ wrap.innerHTML = '<p style="color:var(--navy-deep); font-size:13px;">Todavía no hay ninguna encuesta publicada.</p>'; return; }
+    if(wrap.contains(document.activeElement)) return;
     wrap.innerHTML = surveys.map(s => {
       const total = surveyResponses.filter(r => r.surveyId === s.id).length;
+      const voted = !!localStorage.getItem('encuesta_voted_' + s.id);
       return `
         <div style="border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; background:#fff;">
           <h4 style="margin:0 0 4px; font-size:14.5px;">${s.title}</h4>
           ${s.image ? `<img src="${s.image}" alt="Foto de la encuesta" style="width:100%; max-width:220px; border-radius:6px; margin-bottom:10px; display:block;">` : ''}
-          <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'}</p>
-          ${renderSurveyResultsBars(s)}
+          ${voted ? `
+            <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'} · ✓ Ya has votado</p>
+            ${renderSurveyResultsBars(s)}
+          ` : `
+            <form onsubmit="return submitSurveyVoteInline(event, '${s.id}')">
+              ${(s.options || []).map(opt => `
+                <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; margin-bottom:8px; cursor:pointer; background:#fff;">
+                  <input type="radio" name="surveyOption-${s.id}" value="${opt.id}" required style="width:auto;">
+                  ${opt.image ? `<img src="${opt.image}" alt="${opt.text}" style="width:48px; height:48px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
+                  <span style="font-size:14px; color:#123024;">${opt.text}</span>
+                </label>`).join('')}
+              <button class="btn teal" type="submit">Votar</button>
+            </form>`}
         </div>`;
     }).join('');
+  }
+
+  async function submitSurveyVoteInline(e, surveyId){
+    e.preventDefault();
+    const selected = document.querySelector(`input[name="surveyOption-${surveyId}"]:checked`);
+    if(!selected) return false;
+    const s = surveys.find(x => x.id === surveyId);
+    const opt = s && (s.options || []).find(o => o.id === selected.value);
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try{
+      await addDoc(collection(db,'survey_responses'), {
+        surveyId, optionId: selected.value, optionText: opt ? opt.text : '', submittedAt: serverTimestamp()
+      });
+      localStorage.setItem('encuesta_voted_' + surveyId, '1');
+      renderSurveysListSocio();
+    } catch(err){
+      alert('No se pudo enviar tu voto. Revisa la conexión e inténtalo otra vez.');
+      console.error(err);
+      btn.disabled = false; btn.textContent = 'Votar';
+    }
+    return false;
   }
 
   // ===== Encuesta pública por enlace (?encuesta=ID) — sin necesitar sesión =====
@@ -7144,7 +7179,7 @@
     renderAll,
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, extractCruisesFromPdf, clearAllCruises, deleteCruise, addActivity, editActivity, cancelEditActivity, deleteActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
-    addSurveyOption, updateSurveyOption, removeSurveyOption, previewSurveyPhoto, previewSurveyOptionPhoto, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
+    addSurveyOption, updateSurveyOption, removeSurveyOption, previewSurveyPhoto, previewSurveyOptionPhoto, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm, submitSurveyVoteInline,
     previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,

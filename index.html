@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.28 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.29 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1769,6 +1769,11 @@
       <span class="tag">📊 Encuestas a socios (administrador)</span>
       <p style="margin:0 0 14px; font-size:13px; color:#123024;">Escribe la pregunta y las opciones, publica la encuesta, y comparte el enlace que se genera por WhatsApp — cualquiera que lo abra puede votar sin necesitar cuenta.</p>
       <div class="field"><label>Pregunta / título de la encuesta</label><input type="text" id="surveyTitle" placeholder="Ej: ¿Qué día prefieres para la próxima reunión?"></div>
+      <div class="field">
+        <label>Foto (opcional)</label>
+        <input type="file" accept="image/*" id="surveyPhotoInput" onchange="previewSurveyPhoto(event)">
+        <div id="surveyPhotoPreview" style="margin-top:8px; max-width:160px;"></div>
+      </div>
       <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:6px; color:var(--navy);">Opciones</label>
       <div id="surveyOptionsList"></div>
       <button class="icon-btn" type="button" onclick="addSurveyOption()" style="margin:4px 0 14px;">+ Añadir opción</button>
@@ -1985,6 +1990,13 @@
   let surveys = [];
   let surveyResponses = [];
   let pendingSurveyOptions = ['', ''];
+  let pendingSurveyPhotoFile = null;
+  function previewSurveyPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingSurveyPhotoFile = file;
+    document.getElementById('surveyPhotoPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="Foto de la encuesta" style="width:100%; border-radius:6px; display:block;">`;
+  }
   // Encuesta pública por enlace (?encuesta=ID) — no requiere sesión para
   // responder, igual que el formulario de alta de comercio.
   let encuestaId = null;
@@ -5363,15 +5375,31 @@
     if(!title){ alert('Escribe la pregunta de la encuesta.'); return; }
     const options = pendingSurveyOptions.map(o => o.trim()).filter(Boolean);
     if(options.length < 2){ alert('Escribe al menos 2 opciones.'); return; }
+    let image = null;
+    if(pendingSurveyPhotoFile){
+      try{
+        const fileRef = ref(storage, `posters/${Date.now()}_${pendingSurveyPhotoFile.name}`);
+        await uploadBytes(fileRef, pendingSurveyPhotoFile);
+        image = await getDownloadURL(fileRef);
+      } catch(err){
+        alert('No se pudo subir la foto de la encuesta.');
+        console.error(err);
+        return;
+      }
+    }
     try{
       await addDoc(collection(db,'surveys'), {
         title,
+        image,
         options: options.map((text, i) => ({ id: 'opt' + i, text })),
         active: true,
         createdAt: serverTimestamp()
       });
       document.getElementById('surveyTitle').value = '';
       pendingSurveyOptions = ['', ''];
+      pendingSurveyPhotoFile = null;
+      document.getElementById('surveyPhotoInput').value = '';
+      document.getElementById('surveyPhotoPreview').innerHTML = '';
       renderSurveyOptionsList();
       alert('✓ Encuesta publicada. Ya puedes compartir su enlace más abajo.');
     } catch(err){
@@ -5433,6 +5461,7 @@
             <h4 style="margin:0 0 4px; font-size:14.5px;">${s.title}</h4>
             <button class="icon-btn" type="button" onclick="deleteSurvey('${s.id}')" title="Eliminar encuesta" style="flex-shrink:0;">🗑️</button>
           </div>
+          ${s.image ? `<img src="${s.image}" alt="Foto de la encuesta" style="width:100%; max-width:220px; border-radius:6px; margin-bottom:10px; display:block;">` : ''}
           <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'}</p>
           ${renderSurveyResultsBars(s)}
           <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
@@ -5454,6 +5483,7 @@
       return `
         <div style="border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:14px; background:#fff;">
           <h4 style="margin:0 0 4px; font-size:14.5px;">${s.title}</h4>
+          ${s.image ? `<img src="${s.image}" alt="Foto de la encuesta" style="width:100%; max-width:220px; border-radius:6px; margin-bottom:10px; display:block;">` : ''}
           <p style="margin:0 0 12px; font-size:11.5px; color:var(--navy-deep);">${total} respuesta${total === 1 ? '' : 's'}</p>
           ${renderSurveyResultsBars(s)}
         </div>`;
@@ -5496,6 +5526,7 @@
     area.innerHTML = `
       <div class="card">
         <h3 style="margin:0 0 16px; color:var(--navy);">${s.title}</h3>
+        ${s.image ? `<img src="${s.image}" alt="Foto de la encuesta" style="width:100%; border-radius:8px; margin:-4px 0 16px; display:block;">` : ''}
         <form onsubmit="return submitEncuestaForm(event)">
           ${(s.options || []).map((opt, i) => `
             <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; margin-bottom:8px; cursor:pointer; background:#fff;">
@@ -7083,7 +7114,7 @@
     renderAll,
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, extractCruisesFromPdf, clearAllCruises, deleteCruise, addActivity, editActivity, cancelEditActivity, deleteActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
-    addSurveyOption, updateSurveyOption, removeSurveyOption, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
+    addSurveyOption, updateSurveyOption, removeSurveyOption, previewSurveyPhoto, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,

@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.27 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.28 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1283,6 +1283,11 @@
         </div>
         <div class="field"><label>Nombre del comercio</label><input type="text" id="shopName" required placeholder="Ej: Frutería del Carmen"></div>
         <div class="field"><label>Sector</label><input type="text" id="shopCat" required placeholder="Ej: Alimentación"></div>
+        <div class="field">
+          <label>A qué se dedica (opcional)</label>
+          <textarea id="shopDescription" maxlength="300" placeholder="Cuenta brevemente qué ofrece tu comercio..." oninput="document.getElementById('shopDescriptionCount').textContent = this.value.length"></textarea>
+          <span id="shopDescriptionCount" style="font-size:11px; color:var(--navy-deep);">0</span>/300
+        </div>
         <div class="field"><label>Dirección</label><input type="text" id="shopAddress" placeholder="Calle, número, Cartagena"></div>
         <div class="field"><label>Teléfono (opcional)</label><input type="tel" id="shopPhone" placeholder="968 XX XX XX"></div>
         <div class="field"><label>Página web (opcional)</label><input type="text" id="shopWebsite" placeholder="www.minegocio.com"></div>
@@ -4497,6 +4502,7 @@
             <button class="btn" type="button" style="white-space:nowrap; flex-shrink:0;" onclick="openShopMap(decodeURIComponent('${encodeURIComponent(mapQuery)}'))">📍 Cómo llegar</button>
           </div>
           <span class="cat" style="font-family:'Space Mono',monospace; font-size:11px; color:var(--brick); text-transform:uppercase; letter-spacing:.05em;">${s.cat || ''}</span>
+          ${s.description ? `<p style="margin:10px 0 0; font-size:13.5px; color:#123024; line-height:1.55;">${s.description}</p>` : ''}
           ${s.address ? `<div style="margin:10px 0 0; font-size:13.5px; color:var(--navy-deep);">📍 ${s.address}</div>` : ''}
           <div class="shop-detail-info-row">
             ${s.hours ? `<div style="font-size:13.5px; color:#123024; white-space:pre-wrap; line-height:1.5;"><strong>🕒 Horario</strong><br>${s.hours}</div>` : ''}
@@ -4858,6 +4864,7 @@
     e.preventDefault();
     const name = document.getElementById('shopName').value;
     const cat = document.getElementById('shopCat').value;
+    const description = document.getElementById('shopDescription').value.trim();
     const address = document.getElementById('shopAddress').value;
     const phone = document.getElementById('shopPhone').value.trim();
     const website = document.getElementById('shopWebsite').value.trim();
@@ -4900,10 +4907,10 @@
       }
       interiorPhotos = interiorPhotos.filter(Boolean);
       if(isEditing){
-        await updateDoc(doc(db,'shops', editingShopId), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
+        await updateDoc(doc(db,'shops', editingShopId), { name, cat, description, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, audience, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       } else {
         const c1 = shopPalette[shops.length % shopPalette.length];
-        await addDoc(collection(db,'shops'), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
+        await addDoc(collection(db,'shops'), { name, cat, description, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, audience, color1:c1, color2:c1, logo: logoUrl, photo: photoUrl, interiorPhotos, contactName, contactPhone, quota, memberStatus });
       }
       pendingLogoFile = null;
       pendingShopPhotoFile = null;
@@ -4924,6 +4931,8 @@
     editingShopId = id;
     document.getElementById('shopName').value = s.name || '';
     document.getElementById('shopCat').value = s.cat || '';
+    document.getElementById('shopDescription').value = s.description || '';
+    document.getElementById('shopDescriptionCount').textContent = (s.description || '').length;
     document.getElementById('shopAddress').value = s.address || '';
     document.getElementById('shopPhone').value = s.phone || '';
     document.getElementById('shopWebsite').value = s.website || '';
@@ -4965,6 +4974,7 @@
     document.getElementById('shopSubmitBtn').textContent = 'Añadir al directorio';
     document.getElementById('shopCancelEditBtn').style.display = 'none';
     document.getElementById('shopHoursEditorContainer').innerHTML = renderHoursEditor('shop', null);
+    document.getElementById('shopDescriptionCount').textContent = '0';
   }
 
   async function deleteShop(id){
@@ -5564,6 +5574,11 @@
         <form onsubmit="return saveMiComercio(event)">
           <div class="field"><label>Nombre del comercio</label><input type="text" id="miComercioName" required value="${s.name || ''}"></div>
           <div class="field"><label>Sector</label><input type="text" id="miComercioCat" value="${s.cat || ''}"></div>
+          <div class="field">
+            <label>A qué se dedica</label>
+            <textarea id="miComercioDescription" maxlength="300" placeholder="Cuenta brevemente qué ofrece tu comercio..." oninput="document.getElementById('miComercioDescriptionCount').textContent = this.value.length">${s.description || ''}</textarea>
+            <span id="miComercioDescriptionCount" style="font-size:11px; color:var(--navy-deep);">${(s.description || '').length}</span>/300
+          </div>
           <div class="field"><label>Dirección</label><input type="text" id="miComercioAddress" value="${s.address || ''}"></div>
           <div class="field"><label>Teléfono (visible a clientes)</label><input type="tel" id="miComercioPhone" value="${s.phone || ''}"></div>
           <div class="field"><label>Página web</label><input type="text" id="miComercioWebsite" value="${s.website || ''}"></div>
@@ -5688,6 +5703,7 @@
     try{
       const name = document.getElementById('miComercioName').value.trim();
       const cat = document.getElementById('miComercioCat').value.trim();
+      const description = document.getElementById('miComercioDescription').value.trim();
       const address = document.getElementById('miComercioAddress').value.trim();
       const phone = document.getElementById('miComercioPhone').value.trim();
       const website = document.getElementById('miComercioWebsite').value.trim();
@@ -5718,7 +5734,7 @@
         }
       }
       interiorPhotos = interiorPhotos.filter(Boolean);
-      await updateDoc(doc(db,'shops', s.id), { name, cat, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, photo, logo, interiorPhotos });
+      await updateDoc(doc(db,'shops', s.id), { name, cat, description, address, phone, website, instagram, facebook, onlineSales, onlineSalesUrl, hours, hoursData, photo, logo, interiorPhotos });
       pendingMiComercioPhotoFile = null;
       pendingMiComercioLogoFile = null;
       pendingMiComercioInteriorFiles = [null, null, null, null];

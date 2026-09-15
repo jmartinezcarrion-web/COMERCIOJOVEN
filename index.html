@@ -1038,7 +1038,7 @@
       <div id="inicioContestsBox" style="display:none;"></div>
     </div>
 
-    <p class="app-version">v1.29 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
+    <p class="app-version">v1.30 · Última actualización: 9 de septiembre de 2026 · Comercio Joven Cartagena</p>
   </section>
 
   <!-- NOTICIAS -->
@@ -1989,7 +1989,7 @@
   // ===== Encuestas a socios =====
   let surveys = [];
   let surveyResponses = [];
-  let pendingSurveyOptions = ['', ''];
+  let pendingSurveyOptions = [{ text:'', photoFile:null }, { text:'', photoFile:null }];
   let pendingSurveyPhotoFile = null;
   function previewSurveyPhoto(e){
     const file = e.target.files[0];
@@ -5345,23 +5345,35 @@
   }
 
   // ===== Encuestas a socios (administrador) =====
+  // Cada opción es { text, photoFile } — photoFile se sube al publicar.
   function renderSurveyOptionsList(){
     const wrap = document.getElementById('surveyOptionsList');
     if(!wrap) return;
     const active = document.activeElement;
     if(wrap.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
-    wrap.innerHTML = pendingSurveyOptions.map((val, i) => `
-      <div style="display:flex; gap:8px; margin-bottom:8px;">
-        <input type="text" value="${val.replace(/"/g,'&quot;')}" placeholder="Opción ${i+1}" oninput="updateSurveyOption(${i}, this.value)" style="flex:1; padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif;">
+    wrap.innerHTML = pendingSurveyOptions.map((opt, i) => `
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed var(--line);">
+        ${opt.photoFile ? `<img src="${URL.createObjectURL(opt.photoFile)}" alt="Foto de la opción ${i+1}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
+        <div style="flex:1; display:grid; gap:6px;">
+          <input type="text" value="${opt.text.replace(/"/g,'&quot;')}" placeholder="Opción ${i+1}" oninput="updateSurveyOption(${i}, this.value)" style="padding:9px 10px; border:1px solid var(--line); border-radius:6px; font-size:14px; font-family:'Inter',sans-serif;">
+          <input type="file" accept="image/*" onchange="previewSurveyOptionPhoto(${i}, event)" style="font-size:11.5px;">
+        </div>
         ${pendingSurveyOptions.length > 2 ? `<button class="icon-btn" type="button" onclick="removeSurveyOption(${i})" title="Quitar opción">✕</button>` : ''}
       </div>`).join('');
   }
 
-  function updateSurveyOption(i, val){ pendingSurveyOptions[i] = val; }
+  function updateSurveyOption(i, val){ pendingSurveyOptions[i].text = val; }
+
+  function previewSurveyOptionPhoto(i, e){
+    const file = e.target.files[0];
+    if(!file) return;
+    pendingSurveyOptions[i].photoFile = file;
+    renderSurveyOptionsList();
+  }
 
   function addSurveyOption(){
     if(pendingSurveyOptions.length >= 8){ alert('Máximo 8 opciones.'); return; }
-    pendingSurveyOptions.push('');
+    pendingSurveyOptions.push({ text:'', photoFile:null });
     renderSurveyOptionsList();
   }
 
@@ -5373,8 +5385,8 @@
   async function publishSurvey(){
     const title = document.getElementById('surveyTitle').value.trim();
     if(!title){ alert('Escribe la pregunta de la encuesta.'); return; }
-    const options = pendingSurveyOptions.map(o => o.trim()).filter(Boolean);
-    if(options.length < 2){ alert('Escribe al menos 2 opciones.'); return; }
+    const filledOptions = pendingSurveyOptions.filter(o => o.text.trim());
+    if(filledOptions.length < 2){ alert('Escribe al menos 2 opciones.'); return; }
     let image = null;
     if(pendingSurveyPhotoFile){
       try{
@@ -5387,16 +5399,32 @@
         return;
       }
     }
+    let options;
+    try{
+      options = await Promise.all(filledOptions.map(async (o, i) => {
+        let optImage = null;
+        if(o.photoFile){
+          const fileRef = ref(storage, `posters/${Date.now()}_${i}_${o.photoFile.name}`);
+          await uploadBytes(fileRef, o.photoFile);
+          optImage = await getDownloadURL(fileRef);
+        }
+        return { id: 'opt' + i, text: o.text.trim(), image: optImage };
+      }));
+    } catch(err){
+      alert('No se pudo subir alguna foto de las opciones.');
+      console.error(err);
+      return;
+    }
     try{
       await addDoc(collection(db,'surveys'), {
         title,
         image,
-        options: options.map((text, i) => ({ id: 'opt' + i, text })),
+        options,
         active: true,
         createdAt: serverTimestamp()
       });
       document.getElementById('surveyTitle').value = '';
-      pendingSurveyOptions = ['', ''];
+      pendingSurveyOptions = [{ text:'', photoFile:null }, { text:'', photoFile:null }];
       pendingSurveyPhotoFile = null;
       document.getElementById('surveyPhotoInput').value = '';
       document.getElementById('surveyPhotoPreview').innerHTML = '';
@@ -5439,8 +5467,9 @@
       const pct = total ? Math.round((count / total) * 100) : 0;
       return `
         <div style="margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; font-size:12.5px; color:#123024; margin-bottom:3px;">
-            <span>${opt.text}</span><span>${count} (${pct}%)</span>
+          <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#123024; margin-bottom:3px;">
+            ${opt.image ? `<img src="${opt.image}" alt="${opt.text}" style="width:28px; height:28px; object-fit:cover; border-radius:4px; flex-shrink:0;">` : ''}
+            <span style="flex:1;">${opt.text}</span><span>${count} (${pct}%)</span>
           </div>
           <div style="background:var(--sand-2); border-radius:4px; height:8px; overflow:hidden;">
             <div style="background:var(--teal); height:100%; width:${pct}%;"></div>
@@ -5531,6 +5560,7 @@
           ${(s.options || []).map((opt, i) => `
             <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:6px; margin-bottom:8px; cursor:pointer; background:#fff;">
               <input type="radio" name="encuestaOption" value="${opt.id}" required style="width:auto;">
+              ${opt.image ? `<img src="${opt.image}" alt="${opt.text}" style="width:56px; height:56px; object-fit:cover; border-radius:6px; flex-shrink:0;">` : ''}
               <span style="font-size:14px; color:#123024;">${opt.text}</span>
             </label>`).join('')}
           <button class="btn teal" type="submit" id="encuestaSubmitBtn" style="margin-top:8px;">Enviar respuesta</button>
@@ -7114,7 +7144,7 @@
     renderAll,
     showView, toggleAdminAccess, closeAdminLoginModal, submitAdminLogin, sendForgotPasswordEmail, setAdminPreview, togglePastCruises, addNews, deleteNews, previewNewsImage, addCruise, editCruise, cancelEditCruise, toggleCruiseAudience, importCruisesBulk, extractCruisesFromPdf, clearAllCruises, deleteCruise, addActivity, editActivity, cancelEditActivity, deleteActivity, previewActivityPoster,
     previewShopPhoto, previewShopLogo, previewShopInterior, addShop, editShop, cancelEditShop, deleteShop, openShopMap, toggleMemberStatus, deleteMember, loadShopMembershipIntoForm, saveShopMembership, createMemberAccess, createMemberAccessFromModal, toggleShopMemberStatus, removeShopMembership,
-    addSurveyOption, updateSurveyOption, removeSurveyOption, previewSurveyPhoto, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
+    addSurveyOption, updateSurveyOption, removeSurveyOption, previewSurveyPhoto, previewSurveyOptionPhoto, publishSurvey, copySurveyLink, openSurveyWhatsapp, deleteSurvey, submitEncuestaForm,
     previewMiComercioPhoto, previewMiComercioLogo, previewMiComercioInterior, saveMiComercio,
     previewActualizarPhoto, previewActualizarLogo, submitActualizarForm, sendActualizarWhatsapp, sendActualizarEmail, copyActualizarLink,
     publishForumPost, deleteForumPost, deleteForumComment, toggleForumComments, submitForumComment,
